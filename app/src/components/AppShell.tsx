@@ -1,32 +1,74 @@
+import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { OfflineBanner } from './OfflineBanner'
 import { NavigatorDashboard } from '../pages/navigator/DashboardPage'
+import { ClientProfilePage } from '../pages/navigator/ClientProfilePage'
+import { TaskListPage } from '../pages/navigator/tasks/TaskListPage'
+import { CreateTaskPage } from '../pages/navigator/tasks/CreateTaskPage'
+import { TaskDetailPage } from '../pages/navigator/tasks/TaskDetailPage'
+import { LogSessionPage } from '../pages/navigator/sessions/LogSessionPage'
+import { OnboardingWizard } from '../pages/navigator/onboarding/OnboardingWizard'
+import { BenefitsScreenerPage } from '../pages/navigator/screener/BenefitsScreenerPage'
 import { DriverDashboard } from '../pages/driver/DashboardPage'
 import { FamilyDashboard } from '../pages/family/DashboardPage'
 import { AdminDashboard } from '../pages/admin/DashboardPage'
 import { supabase } from '../lib/supabase'
 
-const NAV_ITEMS: Record<string, { label: string; emoji: string }[]> = {
-  navigator:    [{ label: 'Clients', emoji: '👥' }, { label: 'Tasks', emoji: '✅' }, { label: 'Sessions', emoji: '📋' }],
-  driver:       [{ label: 'Trips', emoji: '🚗' }, { label: 'History', emoji: '📂' }],
-  family_proxy: [{ label: 'Activity', emoji: '📡' }, { label: 'Documents', emoji: '📄' }, { label: 'Billing', emoji: '💳' }],
-  admin:        [{ label: 'Overview', emoji: '📊' }, { label: 'Navigators', emoji: '🗺️' }, { label: 'Drivers', emoji: '🚗' }],
+type NavItem = { label: string; emoji: string; path: string }
+
+const NAV_ITEMS: Record<string, NavItem[]> = {
+  navigator:    [
+    { label: 'Clients',  emoji: '👥', path: '/nav' },
+    { label: 'Tasks',    emoji: '✅', path: '/nav/tasks' },
+    { label: 'Onboard',  emoji: '➕', path: '/nav/onboard' },
+  ],
+  driver:       [
+    { label: 'Trips',   emoji: '🚗', path: '/driver' },
+    { label: 'History', emoji: '📂', path: '/driver/history' },
+  ],
+  family_proxy: [
+    { label: 'Activity',   emoji: '📡', path: '/family' },
+    { label: 'Documents',  emoji: '📄', path: '/family/docs' },
+  ],
+  admin:        [
+    { label: 'Overview',   emoji: '📊', path: '/admin' },
+    { label: 'Navigators', emoji: '🗺️', path: '/admin/navigators' },
+    { label: 'Drivers',    emoji: '🚗', path: '/admin/drivers' },
+  ],
+}
+
+function NavigatorRoutes() {
+  return (
+    <Routes>
+      <Route index element={<NavigatorDashboard />} />
+      <Route path="clients/:id" element={<ClientProfilePage />} />
+      <Route path="clients/:clientId/sessions/new" element={<LogSessionPage />} />
+      <Route path="clients/:clientId/screener" element={<BenefitsScreenerPage />} />
+      <Route path="tasks" element={<TaskListPage />} />
+      <Route path="tasks/new" element={<CreateTaskPage />} />
+      <Route path="tasks/:taskId" element={<TaskDetailPage />} />
+      <Route path="onboard" element={<OnboardingWizard />} />
+      <Route path="*" element={<Navigate to="/nav" replace />} />
+    </Routes>
+  )
 }
 
 export function AppShell() {
   const { role, user } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  function DashboardContent() {
+  const navItems = NAV_ITEMS[role ?? ''] ?? []
+
+  function MainContent() {
     switch (role) {
-      case 'navigator':    return <NavigatorDashboard />
+      case 'navigator':    return <NavigatorRoutes />
       case 'driver':       return <DriverDashboard />
       case 'family_proxy': return <FamilyDashboard />
       case 'admin':        return <AdminDashboard />
       default: return <div className="p-4 text-gray-500">Unknown role: {role}</div>
     }
   }
-
-  const navItems = NAV_ITEMS[role ?? ''] ?? []
 
   return (
     <div className="min-h-screen bg-cream flex flex-col">
@@ -51,22 +93,27 @@ export function AppShell() {
 
       {/* Main content */}
       <main className="flex-1 overflow-y-auto pb-20">
-        <DashboardContent />
+        <MainContent />
       </main>
 
       {/* Bottom navigation (mobile-first) */}
       {navItems.length > 0 && (
         <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 flex">
-          {navItems.map(item => (
-            <button
-              key={item.label}
-              className="flex-1 flex flex-col items-center gap-1 py-2 text-xs text-gray-600
-                         hover:text-green active:text-green-dark transition-colors"
-            >
-              <span className="text-lg">{item.emoji}</span>
-              <span>{item.label}</span>
-            </button>
-          ))}
+          {navItems.map(item => {
+            const active = location.pathname === item.path ||
+              (item.path !== '/nav' && location.pathname.startsWith(item.path))
+            return (
+              <button
+                key={item.label}
+                onClick={() => navigate(item.path)}
+                className={`flex-1 flex flex-col items-center gap-1 py-2 text-xs transition-colors
+                  ${active ? 'text-green' : 'text-gray-500 hover:text-green'}`}
+              >
+                <span className="text-lg">{item.emoji}</span>
+                <span>{item.label}</span>
+              </button>
+            )
+          })}
         </nav>
       )}
     </div>

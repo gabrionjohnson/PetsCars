@@ -1,9 +1,20 @@
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { LoginPage } from './pages/LoginPage'
 import { AppShell } from './components/AppShell'
 
+function RoleRedirect({ role }: { role: string | null }) {
+  switch (role) {
+    case 'navigator':    return <Navigate to="/nav" replace />
+    case 'driver':       return <Navigate to="/driver" replace />
+    case 'family_proxy': return <Navigate to="/family" replace />
+    case 'admin':        return <Navigate to="/admin" replace />
+    default:             return <Navigate to="/nav" replace />
+  }
+}
+
 export default function App() {
-  const { user, loading } = useAuth()
+  const { user, role, loading } = useAuth()
 
   if (loading) {
     return (
@@ -13,5 +24,16 @@ export default function App() {
     )
   }
 
-  return user ? <AppShell /> : <LoginPage />
+  if (!user) return <LoginPage />
+
+  return (
+    <Routes>
+      <Route path="/" element={<RoleRedirect role={role} />} />
+      <Route path="/nav/*" element={<AppShell />} />
+      <Route path="/driver/*" element={<AppShell />} />
+      <Route path="/family/*" element={<AppShell />} />
+      <Route path="/admin/*" element={<AppShell />} />
+      <Route path="*" element={<RoleRedirect role={role} />} />
+    </Routes>
+  )
 }

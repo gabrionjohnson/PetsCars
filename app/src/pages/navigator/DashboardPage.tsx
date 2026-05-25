@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { enqueue } from '../../lib/db'
 import { useOffline } from '../../hooks/useOffline'
 
 interface Client {
@@ -16,6 +16,7 @@ export function NavigatorDashboard() {
   const [clients, setClients]   = useState<Client[]>([])
   const [loading, setLoading]   = useState(true)
   const { isOffline, pendingCount } = useOffline()
+  const navigate = useNavigate()
 
   useEffect(() => {
     supabase
@@ -27,20 +28,6 @@ export function NavigatorDashboard() {
         setLoading(false)
       })
   }, [])
-
-  async function logSessionOffline(clientId: string) {
-    await enqueue({
-      table: 'sessions',
-      op: 'INSERT',
-      payload: {
-        client_id: clientId,
-        date: new Date().toISOString().split('T')[0],
-        notes: '',
-        sms_summary_sent: false,
-      },
-    })
-    alert('Session queued — will sync when online.')
-  }
 
   const statusColors: Record<string, string> = {
     active:    'bg-green-100 text-green-800',
@@ -92,17 +79,18 @@ export function NavigatorDashboard() {
               </div>
               <div className="flex gap-2 mt-3">
                 <button
-                  onClick={() => logSessionOffline(client.id)}
+                  onClick={() => navigate(`/nav/clients/${client.id}/sessions/new`)}
                   className="flex-1 bg-green text-white text-sm font-medium py-2 rounded-lg
                              hover:bg-green-light active:bg-green-dark transition-colors"
                 >
                   Log Session
                 </button>
                 <button
+                  onClick={() => navigate(`/nav/clients/${client.id}`)}
                   className="flex-1 border border-gray-200 text-gray-700 text-sm font-medium py-2 rounded-lg
                              hover:bg-gray-50 active:bg-gray-100 transition-colors"
                 >
-                  View Tasks
+                  View Profile
                 </button>
               </div>
             </li>
