@@ -1,0 +1,11 @@
+{
+  "name": "pathway-rls-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node rls.test.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.0"
+  }
+}
