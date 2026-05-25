@@ -1,0 +1,67 @@
+-- =============================================================================
+-- Pathway — Development Seed Data
+-- DO NOT run in production.
+--
+-- How to use:
+--   1. Create users in Supabase Auth (Dashboard → Authentication → Users)
+--      with email + password and set raw_user_meta_data:
+--        { "role": "admin", "name": "Platform Admin" }
+--   2. Note the UUID Supabase assigns to each user.
+--   3. Replace the placeholder UUIDs below and run this script in the
+--      Supabase SQL editor (which runs as superuser, bypassing RLS).
+-- =============================================================================
+
+-- ---------------------------------------------------------------------------
+-- Example: promote the first admin user
+-- After creating the user in the Supabase Dashboard, update their profile:
+-- ---------------------------------------------------------------------------
+-- UPDATE profiles
+-- SET role = 'admin', name = 'Platform Admin'
+-- WHERE email = 'admin@pathway.app';
+
+-- ---------------------------------------------------------------------------
+-- Example: seed a county Navigator for Sumter County, GA
+-- ---------------------------------------------------------------------------
+-- INSERT INTO navigators (id, county, zip_codes, background_check_status, training_complete, active)
+-- VALUES (
+--   '<navigator-profile-uuid>',
+--   'Sumter',
+--   ARRAY['31780', '31781', '31709'],
+--   'approved',
+--   TRUE,
+--   TRUE
+-- );
+
+-- ---------------------------------------------------------------------------
+-- Example: seed a test senior client
+-- ---------------------------------------------------------------------------
+-- INSERT INTO clients (
+--   name, dob, address, zip, county, phone,
+--   navigator_id, subscription_tier, subscription_status
+-- ) VALUES (
+--   'Rosa Mae Johnson',
+--   '1948-03-14',
+--   '123 Magnolia St, Plains, GA',
+--   '31780',
+--   'Sumter',
+--   '+12295550100',
+--   '<navigator-profile-uuid>',
+--   'standard',
+--   'active'
+-- );
+
+-- ---------------------------------------------------------------------------
+-- Example: seed a test Driver
+-- ---------------------------------------------------------------------------
+-- INSERT INTO drivers (
+--   id, county, vehicle_make, vehicle_model, vehicle_year,
+--   license_plate, has_wav, background_check_status, active
+-- ) VALUES (
+--   '<driver-profile-uuid>',
+--   'Sumter',
+--   'Toyota', 'Sienna', 2020,
+--   'GA-XYZ-1234',
+--   TRUE,
+--   'approved',
+--   TRUE
+-- );
