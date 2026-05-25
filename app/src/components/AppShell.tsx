@@ -12,6 +12,9 @@ import { BenefitsScreenerPage } from '../pages/navigator/screener/BenefitsScreen
 import { DriverDashboard } from '../pages/driver/DashboardPage'
 import { FamilyDashboard } from '../pages/family/DashboardPage'
 import { AdminDashboard } from '../pages/admin/DashboardPage'
+import { ErrandOperationsPage } from '../pages/admin/errands/ErrandOperationsPage'
+import { TripDetailPage } from '../pages/navigator/errands/TripDetailPage'
+import { DriverProfilePage } from '../pages/admin/drivers/DriverProfilePage'
 import { supabase } from '../lib/supabase'
 
 type NavItem = { label: string; emoji: string; path: string }
@@ -31,9 +34,9 @@ const NAV_ITEMS: Record<string, NavItem[]> = {
     { label: 'Documents',  emoji: '📄', path: '/family/docs' },
   ],
   admin:        [
-    { label: 'Overview',   emoji: '📊', path: '/admin' },
-    { label: 'Navigators', emoji: '🗺️', path: '/admin/navigators' },
-    { label: 'Drivers',    emoji: '🚗', path: '/admin/drivers' },
+    { label: 'Overview', emoji: '📊', path: '/admin' },
+    { label: 'Errands',  emoji: '🚐', path: '/admin/errands' },
+    { label: 'Drivers',  emoji: '🚗', path: '/admin/drivers' },
   ],
 }
 
@@ -60,12 +63,24 @@ export function AppShell() {
 
   const navItems = NAV_ITEMS[role ?? ''] ?? []
 
+  function AdminRoutes() {
+    return (
+      <Routes>
+        <Route index element={<AdminDashboard />} />
+        <Route path="errands" element={<ErrandOperationsPage />} />
+        <Route path="errands/:tripId" element={<TripDetailPage />} />
+        <Route path="drivers/:driverId" element={<DriverProfilePage />} />
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      </Routes>
+    )
+  }
+
   function MainContent() {
     switch (role) {
       case 'navigator':    return <NavigatorRoutes />
       case 'driver':       return <DriverDashboard />
       case 'family_proxy': return <FamilyDashboard />
-      case 'admin':        return <AdminDashboard />
+      case 'admin':        return <AdminRoutes />
       default: return <div className="p-4 text-gray-500">Unknown role: {role}</div>
     }
   }
