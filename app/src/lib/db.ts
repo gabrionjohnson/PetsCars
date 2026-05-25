@@ -9,10 +9,11 @@ export type QueuedOp =
   | { id: string; type: 'TASK_STEP';        taskId: string; content: string; createdAt: number }
   | { id: string; type: 'SESSION_NOTE';     sessionId: string; note: string; createdAt: number }
   | { id: string; type: 'UPDATE';           table: string; id_col: string; rowId: string; payload: Record<string, unknown>; createdAt: number }
+  | { id: string; type: 'TRIP_STATUS';      tripId: string; tripType: 'errand' | 'nemt'; status: string; gpsLat?: number; gpsLng?: number; note?: string; photoUrl?: string; createdAt: number }
 
 const DB_NAME    = 'pathway-offline'
 const STORE_NAME = 'sync-queue'
-const DB_VERSION = 2  // bumped from 1
+const DB_VERSION = 3  // v3: TRIP_STATUS op type
 
 let _db: IDBPDatabase | null = null
 
@@ -52,6 +53,27 @@ export async function enqueueTaskStep(taskId: string, content: string): Promise<
 export async function enqueueSessionNote(sessionId: string, note: string): Promise<QueuedOp> {
   const db   = await getDb()
   const item: QueuedOp = { id: crypto.randomUUID(), type: 'SESSION_NOTE', sessionId, note, createdAt: Date.now() }
+  await db.put(STORE_NAME, item)
+  return item
+}
+
+export async function enqueueTripStatus(
+  tripId:    string,
+  tripType:  'errand' | 'nemt',
+  status:    string,
+  opts?:     { gpsLat?: number; gpsLng?: number; note?: string; photoUrl?: string },
+): Promise<QueuedOp> {
+  const db = await getDb()
+  const item: QueuedOp = {
+    id: crypto.randomUUID(),
+    type: 'TRIP_STATUS',
+    tripId, tripType, status,
+    gpsLat:   opts?.gpsLat,
+    gpsLng:   opts?.gpsLng,
+    note:     opts?.note,
+    photoUrl: opts?.photoUrl,
+    createdAt: Date.now(),
+  }
   await db.put(STORE_NAME, item)
   return item
 }
@@ -116,6 +138,22 @@ async function executeOp(op: QueuedOp): Promise<void> {
       const { error } = await supabase.rpc('append_task_step', {
         p_task_id: op.taskId,
         p_content:  op.content,
+      })
+      if (error) throw error
+      break
+    }
+    case 'TRIP_STATUS': {
+      // Calls the Edge Function which handles auth, audit log, and SMS
+      const { error } = await supabase.functions.invoke('update-trip-status', {
+        body: {
+          trip_id:   op.tripId,
+          trip_type: op.tripType,
+          status:    op.status,
+          gps_lat:   op.gpsLat,
+          gps_lng:   op.gpsLng,
+          note:      op.note,
+          photo_url: op.photoUrl,
+        },
       })
       if (error) throw error
       break
