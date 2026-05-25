@@ -1,0 +1,692 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
+import { Button } from '../../components/ui/Button'
+import { Toast } from '../../components/ui/Toast'
+import {
+  SERVICE_LABELS,
+  SERVICE_EMOJI,
+  SERVICE_RATES,
+  type ServiceType,
+} from '../../hooks/useTrips'
+
+interface Client {
+  id:        string
+  name:      string
+  phone:     string
+  address:   string | null
+  va_status: boolean
+}
+
+const SERVICES: ServiceType[] = [
+  'pharmacy_pickup',
+  'grocery_run',
+  'small_errand',
+  'ride_and_wait',
+]
+
+const SERVICE_DESCRIPTIONS: Record<ServiceType, string> = {
+  pharmacy_pickup: 'Prescription pickup & home delivery',
+  grocery_run:     'Shopping list pickup & home delivery',
+  small_errand:    'Post office, bank, single-stop errand',
+  ride_and_wait:   'Transport to appointment, wait, return',
+}
+
+const APPT_DURATIONS = [
+  '30min', '45min', '1hr', '1.5hr', '2hr', '2.5hr+',
+]
+
+function StepIndicator({ current, total }: { current: number; total: number }) {
+  return (
+    <div className="flex items-center justify-center gap-2 py-3">
+      {Array.from({ length: total }, (_, i) => (
+        <div
+          key={i}
+          className={`h-2 rounded-full transition-all ${
+            i + 1 === current
+              ? 'w-6 bg-green'
+              : i + 1 < current
+              ? 'w-2 bg-green-light'
+              : 'w-2 bg-gray-300'
+          }`}
+        />
+      ))}
+      <span className="ml-2 text-xs text-gray-500">Step {current} of {total}</span>
+    </div>
+  )
+}
+
+// ─── Step 1: Select Service ───────────────────────────────────────────────────
+function StepSelectService({
+  selected,
+  onSelect,
+  onNext,
+  onBack,
+}: {
+  selected: ServiceType | ''
+  onSelect: (s: ServiceType) => void
+  onNext: () => void
+  onBack: () => void
+}) {
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-bold text-gray-900">Select Service</h2>
+      <div className="grid grid-cols-2 gap-3">
+        {SERVICES.map(svc => {
+          const isSelected = selected === svc
+          return (
+            <button
+              key={svc}
+              onClick={() => onSelect(svc)}
+              className={`relative flex flex-col items-center text-center p-4 rounded-xl border-2 transition-all min-h-[120px] ${
+                isSelected
+                  ? 'border-green bg-green-50'
+                  : 'border-gray-200 bg-white hover:border-gray-300'
+              }`}
+            >
+              {isSelected && (
+                <span className="absolute top-2 right-2 text-green text-sm font-bold">✓</span>
+              )}
+              <span className="text-3xl mb-1">{SERVICE_EMOJI[svc]}</span>
+              <span className="text-sm font-semibold text-gray-900 leading-tight">
+                {SERVICE_LABELS[svc]}
+              </span>
+              <span className="text-xs text-gray-500 mt-1 leading-snug">
+                {SERVICE_DESCRIPTIONS[svc]}
+              </span>
+              <span className="mt-2 text-sm font-bold text-green">
+                ${SERVICE_RATES[svc].flat}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      <div className="flex gap-3">
+        <Button variant="secondary" fullWidth onClick={onBack}>Back</Button>
+        <Button fullWidth disabled={!selected} onClick={onNext}>Next: Job Details</Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Step 2: Job Details ──────────────────────────────────────────────────────
+interface JobDetails {
+  pharmacyName?: string
+  pharmacyAddress?: string
+  rxReady?: string
+  deliveryAddress?: string
+  instructions?: string
+  storeName?: string
+  storeAddress?: string
+  shoppingList?: string
+  estimatedTotal?: string
+  errandDescription?: string
+  locationName?: string
+  locationAddress?: string
+  itemsToPickup?: string
+  returnAddress?: string
+  pickupAddress?: string
+  destination?: string
+  appointmentDate?: string
+  appointmentTime?: string
+  appointmentDuration?: string
+  wavRequired?: boolean
+}
+
+function StepJobDetails({
+  service,
+  details,
+  onChange,
+  onNext,
+  onBack,
+}: {
+  service: ServiceType
+  details: JobDetails
+  onChange: (d: JobDetails) => void
+  onNext: () => void
+  onBack: () => void
+}) {
+  const set = (key: keyof JobDetails, val: string | boolean) =>
+    onChange({ ...details, [key]: val })
+
+  const inputCls =
+    'w-full border border-gray-300 rounded-xl px-4 py-3 text-sm text-gray-900 focus:ring-2 focus:ring-green focus:outline-none'
+  const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
+
+  function isValid(): boolean {
+    if (service === 'pharmacy_pickup')
+      return !!(details.pharmacyName && details.pharmacyAddress && details.rxReady)
+    if (service === 'grocery_run')
+      return !!(details.storeName && details.storeAddress && details.shoppingList)
+    if (service === 'small_errand')
+      return !!(details.errandDescription && details.locationAddress)
+    if (service === 'ride_and_wait')
+      return !!(details.destination && details.appointmentDate && details.appointmentTime)
+    return false
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-bold text-gray-900">Job Details</h2>
+
+      {service === 'pharmacy_pickup' && (
+        <>
+          <div>
+            <label className={labelCls}>Pharmacy name *</label>
+            <input className={inputCls} value={details.pharmacyName ?? ''} onChange={e => set('pharmacyName', e.target.value)} placeholder="Walgreens, CVS…" />
+          </div>
+          <div>
+            <label className={labelCls}>Pharmacy address *</label>
+            <input className={inputCls} value={details.pharmacyAddress ?? ''} onChange={e => set('pharmacyAddress', e.target.value)} placeholder="123 Main St" />
+          </div>
+          <div>
+            <label className={labelCls}>Prescription ready? *</label>
+            <select className={inputCls} value={details.rxReady ?? ''} onChange={e => set('rxReady', e.target.value)}>
+              <option value="">Select…</option>
+              <option value="yes">Yes</option>
+              <option value="will_call">No — will call ahead</option>
+              <option value="unsure">Not sure</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Delivery address</label>
+            <input className={inputCls} value={details.deliveryAddress ?? ''} onChange={e => set('deliveryAddress', e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Special instructions (optional)</label>
+            <textarea className={inputCls} rows={3} value={details.instructions ?? ''} onChange={e => set('instructions', e.target.value)} placeholder="Gate code, preferred drop-off spot…" />
+          </div>
+        </>
+      )}
+
+      {service === 'grocery_run' && (
+        <>
+          <div>
+            <label className={labelCls}>Store name *</label>
+            <input className={inputCls} value={details.storeName ?? ''} onChange={e => set('storeName', e.target.value)} placeholder="Piggly Wiggly, Walmart…" />
+          </div>
+          <div>
+            <label className={labelCls}>Store address *</label>
+            <input className={inputCls} value={details.storeAddress ?? ''} onChange={e => set('storeAddress', e.target.value)} placeholder="456 Oak Ave" />
+          </div>
+          <div>
+            <label className={labelCls}>Shopping list * (one item per line)</label>
+            <textarea className={inputCls} rows={5} value={details.shoppingList ?? ''} onChange={e => set('shoppingList', e.target.value)} placeholder="Milk&#10;Bread&#10;Eggs" />
+          </div>
+          <div>
+            <label className={labelCls}>Estimated total (optional)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+              <input className={`${inputCls} pl-7`} type="number" min="0" step="0.01" value={details.estimatedTotal ?? ''} onChange={e => set('estimatedTotal', e.target.value)} placeholder="0.00" />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Delivery address</label>
+            <input className={inputCls} value={details.deliveryAddress ?? ''} onChange={e => set('deliveryAddress', e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Special instructions (optional)</label>
+            <textarea className={inputCls} rows={2} value={details.instructions ?? ''} onChange={e => set('instructions', e.target.value)} placeholder="Brand preferences, substitutions OK…" />
+          </div>
+        </>
+      )}
+
+      {service === 'small_errand' && (
+        <>
+          <div>
+            <label className={labelCls}>Errand description *</label>
+            <textarea className={inputCls} rows={3} value={details.errandDescription ?? ''} onChange={e => set('errandDescription', e.target.value)} placeholder="Drop off package at post office…" />
+          </div>
+          <div>
+            <label className={labelCls}>Location name</label>
+            <input className={inputCls} value={details.locationName ?? ''} onChange={e => set('locationName', e.target.value)} placeholder="USPS, First National Bank…" />
+          </div>
+          <div>
+            <label className={labelCls}>Location address *</label>
+            <input className={inputCls} value={details.locationAddress ?? ''} onChange={e => set('locationAddress', e.target.value)} placeholder="789 Elm St" />
+          </div>
+          <div>
+            <label className={labelCls}>Items to pick up or drop off (optional)</label>
+            <textarea className={inputCls} rows={2} value={details.itemsToPickup ?? ''} onChange={e => set('itemsToPickup', e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Return / delivery address</label>
+            <input className={inputCls} value={details.returnAddress ?? ''} onChange={e => set('returnAddress', e.target.value)} />
+          </div>
+        </>
+      )}
+
+      {service === 'ride_and_wait' && (
+        <>
+          <div>
+            <label className={labelCls}>Pickup address</label>
+            <input className={inputCls} value={details.pickupAddress ?? ''} onChange={e => set('pickupAddress', e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Destination address *</label>
+            <input className={inputCls} value={details.destination ?? ''} onChange={e => set('destination', e.target.value)} placeholder="Doctor's office, clinic…" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Appointment date *</label>
+              <input className={inputCls} type="date" value={details.appointmentDate ?? ''} onChange={e => set('appointmentDate', e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Appointment time *</label>
+              <input className={inputCls} type="time" value={details.appointmentTime ?? ''} onChange={e => set('appointmentTime', e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Estimated duration</label>
+            <select className={inputCls} value={details.appointmentDuration ?? ''} onChange={e => set('appointmentDuration', e.target.value)}>
+              <option value="">Select…</option>
+              {APPT_DURATIONS.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Wheelchair assistance needed?</label>
+            <div className="flex gap-3">
+              {['Yes', 'No'].map(opt => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => set('wavRequired', opt === 'Yes')}
+                  className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    details.wavRequired === (opt === 'Yes')
+                      ? 'border-green bg-green-50 text-green'
+                      : 'border-gray-200 text-gray-700'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Special instructions (optional)</label>
+            <textarea className={inputCls} rows={2} value={details.instructions ?? ''} onChange={e => set('instructions', e.target.value)} placeholder="Needs extra time getting in/out…" />
+          </div>
+        </>
+      )}
+
+      <div className="flex gap-3">
+        <Button variant="secondary" fullWidth onClick={onBack}>Back</Button>
+        <Button fullWidth disabled={!isValid()} onClick={onNext}>Next: Schedule</Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Step 3: Schedule ─────────────────────────────────────────────────────────
+function StepSchedule({
+  scheduleType,
+  scheduleDate,
+  scheduleTime,
+  onType,
+  onDate,
+  onTime,
+  onNext,
+  onBack,
+}: {
+  scheduleType: 'asap' | 'later'
+  scheduleDate: string
+  scheduleTime: string
+  onType: (t: 'asap' | 'later') => void
+  onDate: (d: string) => void
+  onTime: (t: string) => void
+  onNext: () => void
+  onBack: () => void
+}) {
+  const today   = new Date().toISOString().split('T')[0]
+  const isValid = scheduleType === 'asap' || (!!scheduleDate && !!scheduleTime)
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-bold text-gray-900">Schedule</h2>
+      <div className="space-y-3">
+        {(['asap', 'later'] as const).map(opt => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onType(opt)}
+            className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
+              scheduleType === opt
+                ? 'border-green bg-green-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'
+            }`}
+          >
+            <span className="text-2xl">{opt === 'asap' ? '⚡' : '📅'}</span>
+            <div>
+              <p className="font-semibold text-gray-900">
+                {opt === 'asap' ? 'ASAP — next available driver' : 'Schedule for later'}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {opt === 'asap'
+                  ? 'Job is dispatched immediately'
+                  : 'Pick a date and time for the job'}
+              </p>
+            </div>
+            {scheduleType === opt && (
+              <span className="ml-auto text-green font-bold">✓</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {scheduleType === 'later' && (
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+            <input
+              type="date"
+              min={today}
+              value={scheduleDate}
+              onChange={e => onDate(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-green focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+            <input
+              type="time"
+              value={scheduleTime}
+              onChange={e => onTime(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-green focus:outline-none"
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-3">
+        <Button variant="secondary" fullWidth onClick={onBack}>Back</Button>
+        <Button fullWidth disabled={!isValid} onClick={onNext}>Next: Review</Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Step 4: Review & Confirm ─────────────────────────────────────────────────
+function StepReview({
+  client,
+  service,
+  details,
+  scheduleType,
+  scheduleDate,
+  scheduleTime,
+  submitting,
+  onConfirm,
+  onBack,
+}: {
+  client: Client
+  service: ServiceType
+  details: JobDetails
+  scheduleType: 'asap' | 'later'
+  scheduleDate: string
+  scheduleTime: string
+  submitting: boolean
+  onConfirm: () => void
+  onBack: () => void
+}) {
+  const detailRows: [string, string][] = []
+
+  if (service === 'pharmacy_pickup') {
+    if (details.pharmacyName) detailRows.push(['Pharmacy', details.pharmacyName])
+    if (details.pharmacyAddress) detailRows.push(['Address', details.pharmacyAddress])
+    if (details.rxReady) detailRows.push(['Rx ready?', details.rxReady === 'yes' ? 'Yes' : details.rxReady === 'will_call' ? 'No — will call' : 'Not sure'])
+    if (details.deliveryAddress) detailRows.push(['Deliver to', details.deliveryAddress])
+  } else if (service === 'grocery_run') {
+    if (details.storeName) detailRows.push(['Store', details.storeName])
+    if (details.shoppingList) detailRows.push(['List', details.shoppingList.replace(/\n/g, ', ')])
+    if (details.estimatedTotal) detailRows.push(['Est. total', `$${details.estimatedTotal}`])
+  } else if (service === 'small_errand') {
+    if (details.errandDescription) detailRows.push(['Errand', details.errandDescription])
+    if (details.locationAddress) detailRows.push(['Address', details.locationAddress])
+  } else if (service === 'ride_and_wait') {
+    if (details.destination) detailRows.push(['Destination', details.destination])
+    if (details.appointmentDate) detailRows.push(['Appointment', `${details.appointmentDate} at ${details.appointmentTime}`])
+    detailRows.push(['WAV', details.wavRequired ? 'Yes' : 'No'])
+  }
+
+  if (details.instructions) detailRows.push(['Notes', details.instructions])
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-bold text-gray-900">Review & Confirm</h2>
+
+      <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100">
+        <div className="p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Booking for</p>
+          <p className="font-semibold text-gray-900">{client.name}</p>
+        </div>
+        <div className="p-4 flex items-center gap-3">
+          <span className="text-3xl">{SERVICE_EMOJI[service]}</span>
+          <div>
+            <p className="font-semibold text-gray-900">{SERVICE_LABELS[service]}</p>
+            <p className="text-sm text-green font-bold">${SERVICE_RATES[service].flat} flat rate</p>
+          </div>
+        </div>
+        {detailRows.map(([k, v]) => (
+          <div key={k} className="px-4 py-2">
+            <span className="text-xs text-gray-500">{k}: </span>
+            <span className="text-sm text-gray-900">{v}</span>
+          </div>
+        ))}
+        <div className="p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Schedule</p>
+          <p className="font-semibold text-gray-900">
+            {scheduleType === 'asap'
+              ? '⚡ ASAP — next available driver'
+              : `📅 ${scheduleDate} at ${scheduleTime}`}
+          </p>
+        </div>
+      </div>
+
+      {/* Payment note */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
+        💳 Payment will be charged to your card on file.
+      </div>
+
+      <div className="flex gap-3">
+        <Button variant="secondary" fullWidth onClick={onBack} disabled={submitting}>Back</Button>
+        <Button fullWidth loading={submitting} onClick={onConfirm}>
+          Confirm & Dispatch
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+export function FamilyBookErrandPage() {
+  const { user }  = useAuth()
+  const navigate  = useNavigate()
+
+  // Steps: 1=service, 2=details, 3=schedule, 4=review  (client auto-selected)
+  const TOTAL_STEPS = 4
+  const [step, setStep] = useState(1)
+
+  const [client,       setClient]       = useState<Client | null>(null)
+  const [clientLoading, setClientLoading] = useState(true)
+  const [service,      setService]      = useState<ServiceType | ''>('')
+  const [details,      setDetails]      = useState<JobDetails>({})
+  const [scheduleType, setScheduleType] = useState<'asap' | 'later'>('asap')
+  const [scheduleDate, setScheduleDate] = useState('')
+  const [scheduleTime, setScheduleTime] = useState('')
+  const [submitting,   setSubmitting]   = useState(false)
+  const [toast,        setToast]        = useState<string | null>(null)
+
+  // Load the single linked client
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('family_proxies')
+      .select('client_id, clients:client_id(id, name, phone, address, va_status)')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.clients) {
+          const c = data.clients as any
+          const clientObj: Client = {
+            id:        c.id,
+            name:      c.name,
+            phone:     c.phone ?? '',
+            address:   c.address ?? null,
+            va_status: c.va_status ?? false,
+          }
+          setClient(clientObj)
+          // Pre-fill addresses and WAV from client
+          setDetails({
+            deliveryAddress: c.address ?? '',
+            returnAddress:   c.address ?? '',
+            pickupAddress:   c.address ?? '',
+            wavRequired:     c.va_status ?? false,
+          })
+        }
+        setClientLoading(false)
+      })
+  }, [user])
+
+  async function handleConfirm() {
+    if (!client || !service || !user) return
+    setSubmitting(true)
+
+    const scheduledFor =
+      scheduleType === 'later' && scheduleDate && scheduleTime
+        ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
+        : null
+
+    let pickupAddress = ''
+    let destination: string | null = null
+
+    if (service === 'pharmacy_pickup') {
+      pickupAddress = details.pharmacyAddress ?? ''
+      destination   = details.deliveryAddress ?? client.address ?? ''
+    } else if (service === 'grocery_run') {
+      pickupAddress = details.storeAddress ?? ''
+      destination   = details.deliveryAddress ?? client.address ?? ''
+    } else if (service === 'small_errand') {
+      pickupAddress = details.locationAddress ?? ''
+      destination   = details.returnAddress ?? client.address ?? ''
+    } else if (service === 'ride_and_wait') {
+      pickupAddress = details.pickupAddress ?? client.address ?? ''
+      destination   = details.destination ?? ''
+    }
+
+    const { data: trip, error } = await supabase
+      .from('errand_trips')
+      .insert({
+        client_id:      client.id,
+        booked_by:      user.id,
+        service_type:   service,
+        pickup_address: pickupAddress,
+        destination:    destination,
+        instructions:   details.instructions ?? null,
+        flat_rate:      SERVICE_RATES[service].flat,
+        wav_required:   details.wavRequired ?? false,
+        booking_source: 'family_proxy',
+        job_details:    details,
+        scheduled_for:  scheduledFor,
+        status:         'pending',
+      })
+      .select('id')
+      .single()
+
+    if (error || !trip) {
+      setToast('Failed to create trip: ' + (error?.message ?? 'unknown error'))
+      setSubmitting(false)
+      return
+    }
+
+    await supabase.functions.invoke('dispatch-job', { body: { trip_id: trip.id } })
+
+    setSubmitting(false)
+    navigate('/family')
+  }
+
+  if (clientLoading) {
+    return (
+      <div className="px-4 pt-8 space-y-4">
+        <div className="h-8 bg-gray-100 rounded animate-pulse w-48" />
+        <div className="h-32 bg-gray-100 rounded-xl animate-pulse" />
+      </div>
+    )
+  }
+
+  if (!client) {
+    return (
+      <div className="px-4 pt-8 text-center text-gray-500">
+        <p>No linked senior found. Contact your Navigator.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-lg mx-auto px-4 pb-8">
+      {/* Header */}
+      <div className="flex items-center gap-3 pt-4 pb-2">
+        <button
+          onClick={() => (step === 1 ? navigate(-1) : setStep(s => s - 1))}
+          className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 min-w-[44px] min-h-[44px] flex items-center justify-center"
+        >
+          ←
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Book a Service</h1>
+          <p className="text-sm text-green font-medium">Booking for: {client.name}</p>
+        </div>
+      </div>
+
+      <StepIndicator current={step} total={TOTAL_STEPS} />
+
+      <div className="mt-2">
+        {step === 1 && (
+          <StepSelectService
+            selected={service}
+            onSelect={s => setService(s)}
+            onNext={() => setStep(2)}
+            onBack={() => navigate(-1)}
+          />
+        )}
+        {step === 2 && service && (
+          <StepJobDetails
+            service={service}
+            details={details}
+            onChange={setDetails}
+            onNext={() => setStep(3)}
+            onBack={() => setStep(1)}
+          />
+        )}
+        {step === 3 && (
+          <StepSchedule
+            scheduleType={scheduleType}
+            scheduleDate={scheduleDate}
+            scheduleTime={scheduleTime}
+            onType={setScheduleType}
+            onDate={setScheduleDate}
+            onTime={setScheduleTime}
+            onNext={() => setStep(4)}
+            onBack={() => setStep(2)}
+          />
+        )}
+        {step === 4 && service && (
+          <StepReview
+            client={client}
+            service={service}
+            details={details}
+            scheduleType={scheduleType}
+            scheduleDate={scheduleDate}
+            scheduleTime={scheduleTime}
+            submitting={submitting}
+            onConfirm={handleConfirm}
+            onBack={() => setStep(3)}
+          />
+        )}
+      </div>
+
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
+    </div>
+  )
+}

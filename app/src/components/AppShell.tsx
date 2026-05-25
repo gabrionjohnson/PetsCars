@@ -11,8 +11,11 @@ import { OnboardingWizard } from '../pages/navigator/onboarding/OnboardingWizard
 import { BenefitsScreenerPage } from '../pages/navigator/screener/BenefitsScreenerPage'
 import { DriverDashboard } from '../pages/driver/DashboardPage'
 import { FamilyDashboard } from '../pages/family/DashboardPage'
+import { FamilyBookErrandPage } from '../pages/family/BookErrandPage'
 import { AdminDashboard } from '../pages/admin/DashboardPage'
 import { ErrandOperationsPage } from '../pages/admin/errands/ErrandOperationsPage'
+import { ErrandQueuePage } from '../pages/navigator/errands/ErrandQueuePage'
+import { BookErrandPage } from '../pages/navigator/errands/BookErrandPage'
 import { TripDetailPage } from '../pages/navigator/errands/TripDetailPage'
 import { DriverProfilePage } from '../pages/admin/drivers/DriverProfilePage'
 import { supabase } from '../lib/supabase'
@@ -23,6 +26,7 @@ const NAV_ITEMS: Record<string, NavItem[]> = {
   navigator:    [
     { label: 'Clients',  emoji: '👥', path: '/nav' },
     { label: 'Tasks',    emoji: '✅', path: '/nav/tasks' },
+    { label: 'Errands',  emoji: '🚐', path: '/nav/errands' },
     { label: 'Onboard',  emoji: '➕', path: '/nav/onboard' },
   ],
   driver:       [
@@ -50,8 +54,21 @@ function NavigatorRoutes() {
       <Route path="tasks" element={<TaskListPage />} />
       <Route path="tasks/new" element={<CreateTaskPage />} />
       <Route path="tasks/:taskId" element={<TaskDetailPage />} />
+      <Route path="errands" element={<ErrandQueuePage />} />
+      <Route path="errands/new" element={<BookErrandPage />} />
+      <Route path="errands/:tripId" element={<TripDetailPage />} />
       <Route path="onboard" element={<OnboardingWizard />} />
       <Route path="*" element={<Navigate to="/nav" replace />} />
+    </Routes>
+  )
+}
+
+function FamilyRoutes() {
+  return (
+    <Routes>
+      <Route index element={<FamilyDashboard />} />
+      <Route path="book" element={<FamilyBookErrandPage />} />
+      <Route path="*" element={<Navigate to="/family" replace />} />
     </Routes>
   )
 }
@@ -79,7 +96,7 @@ export function AppShell() {
     switch (role) {
       case 'navigator':    return <NavigatorRoutes />
       case 'driver':       return <DriverDashboard />
-      case 'family_proxy': return <FamilyDashboard />
+      case 'family_proxy': return <FamilyRoutes />
       case 'admin':        return <AdminRoutes />
       default: return <div className="p-4 text-gray-500">Unknown role: {role}</div>
     }
@@ -116,7 +133,7 @@ export function AppShell() {
         <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 flex">
           {navItems.map(item => {
             const active = location.pathname === item.path ||
-              (item.path !== '/nav' && location.pathname.startsWith(item.path))
+              (item.path !== '/nav' && item.path !== '/family' && location.pathname.startsWith(item.path))
             return (
               <button
                 key={item.label}
