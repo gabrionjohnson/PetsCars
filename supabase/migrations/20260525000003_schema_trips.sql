@@ -89,11 +89,13 @@ CREATE TABLE IF NOT EXISTS nemt_trips (
   appointment_address  TEXT          NOT NULL,
   appointment_provider TEXT,
   appointment_type     TEXT,
-  scheduled_datetime   TIMESTAMPTZ   NOT NULL,
+  -- Must be a future datetime; 3-business-day advance requirement enforced at app layer
+  scheduled_datetime   TIMESTAMPTZ   NOT NULL CHECK (scheduled_datetime > NOW()),
   return_scheduled     TIMESTAMPTZ,
   medicaid_id          TEXT          NOT NULL,
   base_fee             NUMERIC(8,2),
-  loaded_miles         NUMERIC(6,2),
+  -- NULL until trip is completed; must be positive when set (Georgia DCH loaded-miles billing)
+  loaded_miles         NUMERIC(6,2)  CHECK (loaded_miles IS NULL OR loaded_miles > 0),
   mileage_rate         NUMERIC(6,4),
   total_billed         NUMERIC(8,2),
   gps_pickup_coords    JSONB,

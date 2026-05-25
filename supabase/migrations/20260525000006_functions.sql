@@ -72,7 +72,12 @@ BEGIN
   INSERT INTO profiles (id, role, name, phone, email)
   VALUES (
     NEW.id,
-    COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'navigator'),
+    -- Block privilege escalation: only non-admin roles may be claimed via metadata.
+    -- Admins are promoted manually via the SQL editor (superuser context) after signup.
+    CASE WHEN (NEW.raw_user_meta_data->>'role') IN ('navigator', 'driver', 'family_proxy')
+         THEN (NEW.raw_user_meta_data->>'role')::user_role
+         ELSE 'navigator'::user_role
+    END,
     NEW.raw_user_meta_data->>'name',
     NEW.raw_user_meta_data->>'phone',
     NEW.email
@@ -260,8 +265,9 @@ LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
+  -- TG_OP guard: on INSERT, OLD is undefined so use TG_OP to distinguish
   IF NEW.status = 'completed'
-     AND (OLD.status IS DISTINCT FROM 'completed')
+     AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM 'completed')
      AND NEW.driver_id IS NOT NULL
   THEN
     UPDATE drivers SET total_trips = total_trips + 1 WHERE id = NEW.driver_id;
@@ -271,9 +277,9 @@ END;
 $$;
 
 CREATE TRIGGER errand_trips_increment_driver
-  AFTER UPDATE ON errand_trips
+  AFTER INSERT OR UPDATE ON errand_trips
   FOR EACH ROW EXECUTE FUNCTION increment_driver_trips();
 
 CREATE TRIGGER nemt_trips_increment_driver
-  AFTER UPDATE ON nemt_trips
+  AFTER INSERT OR UPDATE ON nemt_trips
   FOR EACH ROW EXECUTE FUNCTION increment_driver_trips();

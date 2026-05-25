@@ -76,8 +76,8 @@ CREATE POLICY "drivers: select"
   USING (
     is_admin()
     OR id = auth.uid()
-    -- navigators can see all active drivers for dispatch
-    OR get_user_role() = 'navigator'
+    -- navigators see only active drivers for dispatch (not offboarded driver PII)
+    OR (get_user_role() = 'navigator' AND active = TRUE)
   );
 
 CREATE POLICY "drivers: self-insert or admin"
@@ -141,9 +141,17 @@ CREATE POLICY "family_proxies: select"
     )
   );
 
-CREATE POLICY "family_proxies: self-insert or admin"
+-- Family proxies cannot self-register to an arbitrary client_id.
+-- Only a navigator (for their own clients) or an admin may create this link.
+CREATE POLICY "family_proxies: navigator or admin insert"
   ON family_proxies FOR INSERT
-  WITH CHECK (id = auth.uid() OR is_admin());
+  WITH CHECK (
+    is_admin()
+    OR (
+      get_user_role() = 'navigator'
+      AND client_id IN (SELECT id FROM clients WHERE navigator_id = auth.uid())
+    )
+  );
 
 CREATE POLICY "family_proxies: update own or admin"
   ON family_proxies FOR UPDATE
@@ -263,11 +271,17 @@ CREATE POLICY "documents: admin delete"
 -- BENEFITS SCREENINGS
 -- ---------------------------------------------------------------------------
 
+-- navigator_id is nullable (SET NULL when navigator deleted), so we also grant
+-- access via the client's current navigator assignment to prevent data loss.
 CREATE POLICY "benefits_screenings: select"
   ON benefits_screenings FOR SELECT
   USING (
     is_admin()
     OR navigator_id = auth.uid()
+    OR (
+      get_user_role() = 'navigator'
+      AND client_id IN (SELECT id FROM clients WHERE navigator_id = auth.uid())
+    )
     OR (
       get_user_role() = 'family_proxy'
       AND client_id = (SELECT client_id FROM family_proxies WHERE id = auth.uid() LIMIT 1)

@@ -95,7 +95,7 @@ Go to **Storage** and create two **private** buckets:
 
 ### 4. Signup flow for app users
 
-Pass `user_metadata` when calling `supabase.auth.signUp()`:
+Pass `user_metadata` when calling `supabase.auth.signUp()`. Only `navigator`, `driver`, and `family_proxy` are valid — the trigger blocks `admin` from being claimed via metadata; admin role must be set via SQL editor.
 
 ```js
 await supabase.auth.signUp({
@@ -103,7 +103,7 @@ await supabase.auth.signUp({
   password,
   options: {
     data: {
-      role: 'navigator',   // or 'driver' | 'family_proxy'
+      role: 'navigator',   // 'driver' or 'family_proxy' also valid; 'admin' is blocked
       name: 'Jane Smith',
       phone: '+12295550199',
     },
@@ -113,11 +113,36 @@ await supabase.auth.signUp({
 
 The `handle_new_user()` trigger auto-creates a `profiles` row on signup.
 
+### 5. Onboarding a family proxy
+
+Family proxies **cannot self-register and link themselves to a client**. The RLS INSERT policy requires a Navigator or Admin to create the `family_proxies` row. Recommended flow:
+
+1. Navigator creates the family proxy's Supabase auth account via invite (Dashboard → Auth → Invite User), with `user_metadata = {role: "family_proxy", name: "..."}`
+2. Note the UUID assigned to that auth user
+3. Navigator's app calls `INSERT INTO family_proxies (id, client_id, relationship, ...)` — allowed because the client belongs to that navigator
+4. Family proxy logs in and sees their client's data immediately
+
+### 6. Deleting a client
+
+Because `family_proxies.client_id` is `ON DELETE RESTRICT`, you must remove the family proxy link before deleting a client:
+
+```sql
+-- 1. Remove the family proxy link (and optionally the auth account)
+DELETE FROM family_proxies WHERE client_id = '<client-id>';
+-- Also delete via Supabase Auth Admin API: auth.admin.deleteUser(proxy_auth_id)
+
+-- 2. Now the client can be deleted
+DELETE FROM clients WHERE id = '<client-id>';
+```
+
 ## RLS summary
 
 - `is_admin()` and `get_user_role()` are `SECURITY DEFINER` — they bypass RLS on the `profiles` table to avoid infinite recursion.
 - `get_user_role()` reads the JWT claim first (fast path); falls back to a DB query during local dev before the JWT hook is configured.
 - Seniors have no auth identity — their data is accessed only through their assigned Navigator or linked Family Proxy.
+- Navigators can only see **active** drivers (preventing PII exposure of offboarded drivers' stripe/checkr data).
+- `family_proxies` has `UNIQUE (client_id)` — one proxy per senior, enforced at the schema level.
+- `benefits_screenings` SELECT grants access via the client's **current** navigator assignment, not just the original `navigator_id`, so screenings survive navigator reassignment.
 
 ## Key business rules encoded in triggers
 

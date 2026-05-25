@@ -152,11 +152,16 @@ ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS family_proxies (
   id                 UUID              PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
-  client_id          UUID              NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  -- RESTRICT (not CASCADE): deleting a client must be preceded by removing the family
+  -- proxy link. CASCADE would delete the family_proxies row but leave the auth.users /
+  -- profiles rows orphaned — the proxy could still log in but see no data.
+  client_id          UUID              NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
   relationship       relationship_type,
   stripe_customer_id TEXT,
   created_at         TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
-  updated_at         TIMESTAMPTZ       NOT NULL DEFAULT NOW()
+  updated_at         TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+  -- One family proxy per senior client
+  CONSTRAINT family_proxies_client_id_unique UNIQUE (client_id)
 );
 
 COMMENT ON TABLE family_proxies IS

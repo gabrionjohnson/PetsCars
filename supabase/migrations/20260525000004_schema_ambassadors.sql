@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS referrals (
   ambassador_id    UUID        NOT NULL REFERENCES ambassadors(id) ON DELETE RESTRICT,
   client_id        UUID        NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
   activated_at     TIMESTAMPTZ,
-  months_paid      INT         NOT NULL DEFAULT 0,
+  months_paid      INT         NOT NULL DEFAULT 0 CHECK (months_paid >= 0 AND months_paid <= 6),
   total_bonus_paid NUMERIC(10,2) NOT NULL DEFAULT 0.00,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT referrals_unique UNIQUE (ambassador_id, client_id)
