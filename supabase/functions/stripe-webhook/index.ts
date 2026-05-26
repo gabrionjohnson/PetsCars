@@ -75,6 +75,22 @@ Deno.serve(async (req) => {
   const event = JSON.parse(payload)
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE)
 
+  // ── Idempotency: skip events already processed ────────────────────────────
+  // Stripe may retry delivery; event IDs are stable across retries.
+  const { error: insertErr } = await supabase
+    .from('stripe_processed_events')
+    .insert({ event_id: event.id, event_type: event.type })
+  if (insertErr) {
+    // Duplicate key = already processed — return 200 so Stripe stops retrying
+    if (insertErr.code === '23505') {
+      return new Response(JSON.stringify({ received: true, skipped: 'duplicate' }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    // Any other insert error — log and continue (idempotency best-effort)
+    console.error('stripe_processed_events insert error', insertErr.message)
+  }
+
   try {
     switch (event.type) {
 
@@ -127,11 +143,11 @@ Deno.serve(async (req) => {
                 .update({ months_paid: referral.months_paid + 1 })
                 .eq('id', referral.id)
 
-              // Update ambassador total_earned
-              await supabase
-                .from('ambassadors')
-                .update({ total_earned: supabase.rpc('total_earned') }) // rough update
-                .eq('id', client.ambassador_id)
+              // Atomically increment ambassador total_earned
+              await supabase.rpc('increment_ambassador_earned', {
+                p_id:     client.ambassador_id,
+                p_amount: 10.00,
+              })
             }
           }
 

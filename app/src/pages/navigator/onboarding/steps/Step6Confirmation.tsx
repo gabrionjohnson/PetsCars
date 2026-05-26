@@ -12,6 +12,7 @@ interface Props {
   draft: OnboardingDraft
   queuedFiles: Map<string, File>
   navigatorName: string
+  onSuccess?: () => void
 }
 
 function incomeToDbLevel(range: string): string {
@@ -25,7 +26,7 @@ function incomeToDbLevel(range: string): string {
   return map[range] ?? 'unknown'
 }
 
-export function Step6Confirmation({ draft, queuedFiles, navigatorName }: Props) {
+export function Step6Confirmation({ draft, queuedFiles, navigatorName, onSuccess }: Props) {
   const navigate = useNavigate()
   const [activating, setActivating] = useState(false)
   const [error, setError]           = useState<string | null>(null)
@@ -114,6 +115,7 @@ export function Step6Confirmation({ draft, queuedFiles, navigatorName }: Props) 
       }
 
       // 7. Navigate to client profile
+      onSuccess?.()
       navigate(`/nav/clients/${clientId}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred.')

@@ -167,6 +167,19 @@ export function NemtClaimDetailPage() {
 
   const status = claim.status as NemtClaimStatus
 
+  // Claim completeness — all required before admin can approve
+  const completeness = [
+    { ok: claim.loaded_miles != null,              label: 'Loaded miles set' },
+    { ok: !!claim.medicaid_id,                     label: 'Medicaid ID on file' },
+    { ok: !!claim.pickup_address,                  label: 'Pickup address' },
+    { ok: !!claim.appointment_address,             label: 'Appointment address' },
+    { ok: !!claim.pickup_signature_url,            label: 'Pickup signature captured' },
+    { ok: !!claim.dropoff_signature_url,           label: 'Drop-off signature captured' },
+    { ok: claim.pre_trip_checklist_completed,      label: 'Pre-trip checklist completed' },
+  ]
+  const claimComplete = completeness.every(c => c.ok)
+  const missingCount  = completeness.filter(c => !c.ok).length
+
   return (
     <div className="p-4 space-y-4 pb-24">
       {/* Header */}
@@ -266,12 +279,29 @@ export function NemtClaimDetailPage() {
         </div>
       </div>
 
+      {/* Claim completeness — only shown when draft and something is missing */}
+      {status === 'draft' && !claimComplete && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <p className="font-semibold text-amber-900 text-sm mb-2">
+            ⚠️ {missingCount} required field{missingCount !== 1 ? 's' : ''} missing before approval
+          </p>
+          <div className="space-y-1.5">
+            {completeness.map(c => (
+              <div key={c.label} className="flex items-center gap-2">
+                <span className={c.ok ? 'text-green-600' : 'text-red-500'}>{c.ok ? '✓' : '✗'}</span>
+                <span className={`text-xs ${c.ok ? 'text-gray-500' : 'text-red-700 font-medium'}`}>{c.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Action buttons */}
       <div className="space-y-2">
         {status === 'draft' && (
           <Button fullWidth onClick={approve} loading={saving}
-            disabled={saving || claim.loaded_miles == null}>
-            {claim.loaded_miles == null ? 'Set miles first to approve' : 'Approve for Submission'}
+            disabled={saving || !claimComplete}>
+            {!claimComplete ? `Complete ${missingCount} missing field${missingCount !== 1 ? 's' : ''} to approve` : 'Approve for Submission'}
           </Button>
         )}
         {status === 'ready_to_submit' && (

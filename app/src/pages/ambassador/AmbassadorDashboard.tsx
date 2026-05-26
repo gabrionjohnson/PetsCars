@@ -116,6 +116,18 @@ export function AmbassadorDashboard() {
     setToast('Referral link copied!')
   }
 
+  async function shareLink() {
+    if (!amb) return
+    const url  = `${window.location.origin}/join?ref=${amb.referral_code}`
+    const text = `I'm a Pathway Ambassador helping seniors in my community. Use my referral code ${amb.referral_code} to sign up!`
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Join Pathway', text, url }) }
+      catch { /* user cancelled share */ }
+    } else {
+      copyLink()
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -168,12 +180,20 @@ export function AmbassadorDashboard() {
               {copied ? '✓ Copied' : 'Copy'}
             </button>
           </div>
-          <button
-            onClick={copyLink}
-            className="mt-3 w-full text-sm text-[#1a5c38] font-medium border border-[#1a5c38] rounded-xl py-2.5"
-          >
-            📋 Copy Personal Link
-          </button>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={copyLink}
+              className="flex-1 text-sm text-[#1a5c38] font-medium border border-[#1a5c38] rounded-xl py-2.5"
+            >
+              📋 Copy Link
+            </button>
+            <button
+              onClick={shareLink}
+              className="flex-1 text-sm bg-[#1a5c38] text-white font-medium rounded-xl py-2.5"
+            >
+              📤 Share
+            </button>
+          </div>
           <p className="text-xs text-gray-400 mt-2 text-center truncate">{referralLink}</p>
         </div>
 

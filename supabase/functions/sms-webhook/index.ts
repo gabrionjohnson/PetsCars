@@ -64,7 +64,8 @@ Deno.serve(async (req: Request) => {
   const rawText = (params["Body"] ?? "").trim();
   const keyword = rawText.toUpperCase().split(/\s+/)[0]; // First word, normalized
 
-  console.log(`Inbound SMS from ${from}: "${rawText}"`);
+  // Log masked phone only — never log message body (may contain PHI from seniors)
+  console.log(`Inbound SMS from ${from.slice(0, 6)}***`);
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 

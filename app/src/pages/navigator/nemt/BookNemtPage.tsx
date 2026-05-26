@@ -519,6 +519,7 @@ export function BookNemtPage() {
   const [submitting,     setSubmitting]     = useState(false)
   const [toast,          setToast]          = useState<string | null>(null)
   const [successTripId,  setSuccessTripId]  = useState<string | null>(null)
+  const [dupWarning,     setDupWarning]     = useState(false)
 
   // Load clients
   useEffect(() => {
@@ -565,6 +566,19 @@ export function BookNemtPage() {
     setPickupAddress(prev => prev || client.address || '')
     setMedicaidId(prev => prev || client.medicaid_id || '')
   }, [clientId, clients])
+
+  // Duplicate trip check when reaching confirm step
+  useEffect(() => {
+    if (step !== 7 || !clientId || !scheduledDatetime) return
+    setDupWarning(false)
+    supabase
+      .rpc('check_duplicate_nemt_trip', {
+        p_client_id:          clientId,
+        p_scheduled_datetime: new Date(scheduledDatetime).toISOString(),
+        p_exclude_trip_id:    null,
+      })
+      .then(({ data }) => { if (data === true) setDupWarning(true) })
+  }, [step, clientId, scheduledDatetime])
 
   const selectedClient = clients.find(c => c.id === clientId)
 
@@ -711,19 +725,30 @@ export function BookNemtPage() {
           />
         )}
         {step === 7 && selectedClient && tripType && (
-          <StepConfirm
-            client={selectedClient}
-            tripType={tripType}
-            scheduledDatetime={scheduledDatetime}
-            returnIncluded={returnIncluded}
-            returnPickupTime={returnPickupTime}
-            providerForm={providerForm}
-            pickupAddress={pickupAddress}
-            medicaidId={medicaidId}
-            submitting={submitting}
-            onConfirm={handleConfirm}
-            onBack={() => setStep(6)}
-          />
+          <>
+            {dupWarning && (
+              <div className="mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <p className="text-sm font-semibold text-amber-900">⚠️ Possible duplicate trip</p>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  This client already has a non-canceled trip within 2 hours of the selected time.
+                  Confirm only if this is intentional.
+                </p>
+              </div>
+            )}
+            <StepConfirm
+              client={selectedClient}
+              tripType={tripType}
+              scheduledDatetime={scheduledDatetime}
+              returnIncluded={returnIncluded}
+              returnPickupTime={returnPickupTime}
+              providerForm={providerForm}
+              pickupAddress={pickupAddress}
+              medicaidId={medicaidId}
+              submitting={submitting}
+              onConfirm={handleConfirm}
+              onBack={() => setStep(6)}
+            />
+          </>
         )}
       </div>
 

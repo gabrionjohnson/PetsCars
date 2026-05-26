@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ProgressBar } from '../../../components/ui/ProgressBar'
 import { Button } from '../../../components/ui/Button'
@@ -94,22 +94,59 @@ function validateStep(step: number, draft: OnboardingDraft): string | null {
   return null
 }
 
+const DRAFT_STORAGE_KEY = 'pathway_onboarding_draft'
+
 export function OnboardingWizard() {
   const navigate       = useNavigate()
   const { user }       = useAuth()
   const navigatorName  = user?.email ?? 'Navigator'
 
   const [step, setStep]                   = useState(1)
-  const [draft, setDraft]                 = useState<OnboardingDraft>(INITIAL_DRAFT)
+  const [draft, setDraft]                 = useState<OnboardingDraft>(() => {
+    // Restore from localStorage on mount — resume interrupted onboarding
+    try {
+      const saved = localStorage.getItem(DRAFT_STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved) as Partial<OnboardingDraft>
+        return { ...INITIAL_DRAFT, ...parsed }
+      }
+    } catch { /* corrupted storage — ignore */ }
+    return INITIAL_DRAFT
+  })
   const [validationErr, setValidationErr] = useState<string | null>(null)
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false)
+
+  // Check if we restored a non-empty draft (to show resume banner)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved) as Partial<OnboardingDraft>
+        if (parsed.firstName?.trim()) setHasRestoredDraft(true)
+      }
+    } catch { /* ignore */ }
+  }, [])
 
   // Queued document files (before clientId is known)
   const [queuedFiles, setQueuedFiles] = useState<Map<string, File>>(new Map())
 
   const updateDraft = useCallback((partial: Partial<OnboardingDraft>) => {
-    setDraft(prev => ({ ...prev, ...partial }))
+    setDraft(prev => {
+      const next = { ...prev, ...partial }
+      // Auto-save to localStorage on every change (excludes documents array — just metadata)
+      try {
+        const { documents: _, ...saveable } = next
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(saveable))
+      } catch { /* storage full — ignore */ }
+      return next
+    })
     setValidationErr(null)
   }, [])
+
+  function clearSavedDraft() {
+    localStorage.removeItem(DRAFT_STORAGE_KEY)
+    setHasRestoredDraft(false)
+  }
 
   function handleFileQueued(docType: string, file: File) {
     setQueuedFiles(prev => new Map(prev).set(docType, file))
@@ -146,6 +183,7 @@ export function OnboardingWizard() {
           draft={draft}
           queuedFiles={queuedFiles}
           navigatorName={navigatorName}
+          onSuccess={clearSavedDraft}
         />
       )
       default: return null
@@ -176,6 +214,19 @@ export function OnboardingWizard() {
 
       {/* Scrollable content */}
       <main className="flex-1 overflow-y-auto px-4 py-5 pb-28">
+        {hasRestoredDraft && step === 1 && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center justify-between gap-2">
+            <p className="text-sm text-blue-800 font-medium">
+              📋 Draft restored from previous session.
+            </p>
+            <button
+              onClick={() => { setDraft(INITIAL_DRAFT); clearSavedDraft() }}
+              className="text-xs text-blue-600 font-medium shrink-0"
+            >
+              Start Fresh
+            </button>
+          </div>
+        )}
         {renderStep()}
       </main>
 
