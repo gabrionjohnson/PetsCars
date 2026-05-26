@@ -12,6 +12,7 @@ import { BenefitsScreenerPage } from '../pages/navigator/screener/BenefitsScreen
 import { DriverDashboard } from '../pages/driver/DashboardPage'
 import { FamilyDashboard } from '../pages/family/DashboardPage'
 import { FamilyBookErrandPage } from '../pages/family/BookErrandPage'
+import { NemtPage as FamilyNemtPage } from '../pages/family/NemtPage'
 import { AdminDashboard } from '../pages/admin/DashboardPage'
 import { ErrandOperationsPage } from '../pages/admin/errands/ErrandOperationsPage'
 import { ErrandQueuePage } from '../pages/navigator/errands/ErrandQueuePage'
@@ -19,6 +20,12 @@ import { BookErrandPage } from '../pages/navigator/errands/BookErrandPage'
 import { TripDetailPage } from '../pages/navigator/errands/TripDetailPage'
 import { DriverProfilePage } from '../pages/admin/drivers/DriverProfilePage'
 import { DriverListPage } from '../pages/admin/drivers/DriverListPage'
+import { NemtQueuePage } from '../pages/navigator/nemt/NemtQueuePage'
+import { BookNemtPage } from '../pages/navigator/nemt/BookNemtPage'
+import { NemtTripDetailPage } from '../pages/navigator/nemt/NemtTripDetailPage'
+import { NemtClaimsPage } from '../pages/admin/nemt/NemtClaimsPage'
+import { NemtClaimDetailPage } from '../pages/admin/nemt/NemtClaimDetailPage'
+import { NemtRevenuePage } from '../pages/admin/nemt/NemtRevenuePage'
 import { supabase } from '../lib/supabase'
 
 type NavItem = { label: string; emoji: string; path: string }
@@ -28,6 +35,7 @@ const NAV_ITEMS: Record<string, NavItem[]> = {
     { label: 'Clients',  emoji: '👥', path: '/nav' },
     { label: 'Tasks',    emoji: '✅', path: '/nav/tasks' },
     { label: 'Errands',  emoji: '🚐', path: '/nav/errands' },
+    { label: 'NEMT',     emoji: '🏥', path: '/nav/nemt' },
     { label: 'Onboard',  emoji: '➕', path: '/nav/onboard' },
   ],
   driver:       [
@@ -36,11 +44,13 @@ const NAV_ITEMS: Record<string, NavItem[]> = {
   ],
   family_proxy: [
     { label: 'Activity',   emoji: '📡', path: '/family' },
+    { label: 'NEMT',       emoji: '🏥', path: '/family/nemt' },
     { label: 'Documents',  emoji: '📄', path: '/family/docs' },
   ],
   admin:        [
     { label: 'Overview', emoji: '📊', path: '/admin' },
     { label: 'Errands',  emoji: '🚐', path: '/admin/errands' },
+    { label: 'NEMT',     emoji: '🏥', path: '/admin/nemt' },
     { label: 'Drivers',  emoji: '🚗', path: '/admin/drivers' },
   ],
 }
@@ -58,6 +68,9 @@ function NavigatorRoutes() {
       <Route path="errands" element={<ErrandQueuePage />} />
       <Route path="errands/new" element={<BookErrandPage />} />
       <Route path="errands/:tripId" element={<TripDetailPage />} />
+      <Route path="nemt" element={<NemtQueuePage />} />
+      <Route path="nemt/new" element={<BookNemtPage />} />
+      <Route path="nemt/:tripId" element={<NemtTripDetailPage />} />
       <Route path="onboard" element={<OnboardingWizard />} />
       <Route path="*" element={<Navigate to="/nav" replace />} />
     </Routes>
@@ -69,6 +82,7 @@ function FamilyRoutes() {
     <Routes>
       <Route index element={<FamilyDashboard />} />
       <Route path="book" element={<FamilyBookErrandPage />} />
+      <Route path="nemt" element={<FamilyNemtPage />} />
       <Route path="*" element={<Navigate to="/family" replace />} />
     </Routes>
   )
@@ -87,6 +101,9 @@ export function AppShell() {
         <Route index element={<AdminDashboard />} />
         <Route path="errands" element={<ErrandOperationsPage />} />
         <Route path="errands/:tripId" element={<TripDetailPage />} />
+        <Route path="nemt" element={<NemtClaimsPage />} />
+        <Route path="nemt/revenue" element={<NemtRevenuePage />} />
+        <Route path="nemt/claims/:claimId" element={<NemtClaimDetailPage />} />
         <Route path="drivers" element={<DriverListPage />} />
         <Route path="drivers/:driverId" element={<DriverProfilePage />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />

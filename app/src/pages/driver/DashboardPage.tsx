@@ -13,6 +13,8 @@ import {
   type ErrandTrip,
   type FineStatus,
 } from '../../hooks/useTrips'
+import { useActiveNemtTrip } from '../../hooks/useNemt'
+import { NemtExecutionPage } from './nemt/NemtExecutionPage'
 import { enqueueTripStatus } from '../../lib/db'
 import { supabase } from '../../lib/supabase'
 import { Button } from '../../components/ui/Button'
@@ -243,10 +245,19 @@ function JobCard({
 }
 
 // ---------------------------------------------------------------------------
-// Tab: Active Trip
+// Tab: Active Trip (errand + NEMT)
 // ---------------------------------------------------------------------------
 function ActiveTripTab({ driverId }: { driverId: string }) {
+  const { trip: activeNemtTrip, loading: nemtLoading } = useActiveNemtTrip(driverId)
   const { trip, loading, refetch } = useActiveTrip(driverId)
+
+  // Show NEMT execution UI when there's an active NEMT trip
+  if (nemtLoading) {
+    return <div className="p-4"><div className="h-24 bg-gray-100 rounded-xl animate-pulse" /></div>
+  }
+  if (activeNemtTrip) {
+    return <NemtExecutionPage trip={activeNemtTrip} onRefetch={refetch} />
+  }
   const { isOffline } = useOffline()
   const [advancing, setAdvancing] = useState(false)
   const [flagging, setFlagging]   = useState(false)

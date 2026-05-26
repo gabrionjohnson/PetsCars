@@ -8,8 +8,10 @@ import { DocumentVaultPage } from './documents/DocumentVaultPage'
 import { SessionHistoryPage } from './sessions/SessionHistoryPage'
 import { TaskListPage } from './tasks/TaskListPage'
 import type { RecommendedProgram } from '../../lib/benefitsScreener'
+import { useNemtTrips, NEMT_TRIP_TYPE_EMOJI, NEMT_TRIP_TYPE_LABELS } from '../../hooks/useNemt'
+import { Badge } from '../../components/ui/Badge'
 
-type Tab = 'overview' | 'tasks' | 'sessions' | 'documents' | 'info'
+type Tab = 'overview' | 'tasks' | 'sessions' | 'documents' | 'nemt' | 'info'
 
 interface BenefitsScreening {
   id: string
@@ -44,6 +46,67 @@ const STATUS_COLORS: Record<string, string> = {
   past_due: 'bg-amber-100 text-amber-800',
   inactive: 'bg-gray-100 text-gray-600',
   canceled: 'bg-red-100 text-red-700',
+}
+
+function NemtTab({ clientId, clientName, navigate }: { clientId: string; clientName: string; navigate: (to: string) => void }) {
+  const { trips, loading } = useNemtTrips(clientId)
+
+  if (loading) {
+    return <div className="p-4 space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}</div>
+  }
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-gray-900">NEMT Trips</h3>
+        <button
+          onClick={() => navigate(`/nav/nemt/new?clientId=${clientId}`)}
+          className="bg-[#1a5c38] text-white text-sm px-3 py-1.5 rounded-xl font-medium"
+        >
+          + Book Trip
+        </button>
+      </div>
+
+      {trips.length === 0 ? (
+        <div className="text-center py-8 text-gray-400">
+          <p className="text-3xl mb-2">🏥</p>
+          <p className="text-sm font-medium text-gray-500">No NEMT trips for {clientName}.</p>
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {trips.map(trip => {
+            const statusColor = trip.status === 'completed' ? 'green'
+              : trip.status === 'canceled'  ? 'red'
+              : trip.status === 'en_route'  ? 'blue'
+              : trip.status === 'assigned'  ? 'amber' : 'gray'
+            return (
+              <li
+                key={trip.id}
+                onClick={() => navigate(`/nav/nemt/${trip.id}`)}
+                className="bg-white border border-gray-200 rounded-xl p-3 cursor-pointer hover:border-[#1a5c38] transition-colors"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span>{NEMT_TRIP_TYPE_EMOJI[trip.trip_type]}</span>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{NEMT_TRIP_TYPE_LABELS[trip.trip_type]}</p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(trip.scheduled_datetime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge color={statusColor as 'green' | 'red' | 'blue' | 'amber' | 'gray'}>
+                    {trip.status === 'completed' ? 'Done' : trip.status === 'canceled' ? 'Canceled' :
+                     trip.status === 'en_route'  ? 'En route' : trip.status === 'assigned' ? 'Assigned' : 'Pending'}
+                  </Badge>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 export function ClientProfilePage() {
@@ -139,6 +202,7 @@ export function ClientProfilePage() {
     { id: 'tasks',      label: 'Tasks' },
     { id: 'sessions',   label: 'Sessions' },
     { id: 'documents',  label: 'Documents' },
+    { id: 'nemt',       label: 'NEMT' },
     { id: 'info',       label: 'Info' },
   ]
 
@@ -354,6 +418,11 @@ export function ClientProfilePage() {
         {/* === DOCUMENTS === */}
         {activeTab === 'documents' && (
           <DocumentVaultPage clientId={id} clientName={client.name} />
+        )}
+
+        {/* === NEMT === */}
+        {activeTab === 'nemt' && (
+          <NemtTab clientId={id} clientName={client.name} navigate={navigate} />
         )}
 
         {/* === INFO === */}

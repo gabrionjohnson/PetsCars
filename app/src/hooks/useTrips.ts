@@ -9,6 +9,15 @@ export type FineStatus =
   | 'departed_for_errand' | 'errand_complete' | 'delivered'
   | 'en_route_to_pickup' | 'client_picked_up' | 'arrived_at_destination'
   | 'waiting' | 'return_trip_started' | 'client_returned_home'
+  // NEMT Phase 4
+  | 'pre_trip_checklist_complete'
+  | 'arrived_at_pickup'
+  | 'pickup_signed'
+  | 'departed_to_appointment'
+  | 'arrived_at_appointment'
+  | 'waiting_at_appointment'
+  | 'arrived_at_dropoff'
+  | 'dropoff_signed'
 
 export type ServiceType = 'pharmacy_pickup' | 'grocery_run' | 'small_errand' | 'ride_and_wait'
 export type BookingSource = 'navigator' | 'family_proxy' | 'sms'
@@ -91,20 +100,29 @@ export const SERVICE_RATES: Record<ServiceType, { flat: number; payout: number }
 }
 
 export const FINE_STATUS_LABELS: Partial<Record<FineStatus, string>> = {
-  pending:                'Waiting for driver',
-  dispatched:             'Finding a driver…',
-  accepted:               'Driver accepted',
-  departed_for_errand:    'Driver on the way',
-  errand_complete:        'Errand complete — delivering',
-  delivered:              'Delivered',
-  en_route_to_pickup:     'Driver on the way',
-  client_picked_up:       'Client picked up',
-  arrived_at_destination: 'At destination',
-  waiting:                'Waiting at appointment',
-  return_trip_started:    'Returning home',
-  client_returned_home:   'Client home safely',
-  completed:              'Completed',
-  canceled:               'Canceled',
+  pending:                        'Waiting for driver',
+  dispatched:                     'Finding a driver…',
+  accepted:                       'Driver accepted',
+  departed_for_errand:            'Driver on the way',
+  errand_complete:                'Errand complete — delivering',
+  delivered:                      'Delivered',
+  en_route_to_pickup:             'Driver on the way',
+  client_picked_up:               'Client picked up',
+  arrived_at_destination:         'At destination',
+  waiting:                        'Waiting at appointment',
+  return_trip_started:            'Returning home',
+  client_returned_home:           'Client home safely',
+  completed:                      'Completed',
+  canceled:                       'Canceled',
+  // NEMT Phase 4
+  pre_trip_checklist_complete:    'Pre-trip checklist done',
+  arrived_at_pickup:              'Driver at pickup location',
+  pickup_signed:                  'Client signed — trip started',
+  departed_to_appointment:        'En route to appointment',
+  arrived_at_appointment:         'Arrived at appointment',
+  waiting_at_appointment:         'Waiting at appointment',
+  arrived_at_dropoff:             'Driver at drop-off',
+  dropoff_signed:                 'Client signed — trip complete',
 }
 
 // Steps in order per service type for driver UI
@@ -116,6 +134,33 @@ export const RIDE_STATUS_STEPS: FineStatus[] = [
   'accepted', 'en_route_to_pickup', 'client_picked_up', 'arrived_at_destination',
   'waiting', 'return_trip_started', 'client_returned_home', 'completed',
 ]
+
+// NEMT execution steps — GPS + signature captured at starred steps
+export const NEMT_STATUS_STEPS: FineStatus[] = [
+  'accepted',
+  'pre_trip_checklist_complete',  // driver completes vehicle safety checklist
+  'arrived_at_pickup',            // GPS captured (≤0.25 mi proximity check)
+  'pickup_signed',                // client signs → loaded miles START
+  'departed_to_appointment',
+  'arrived_at_appointment',       // GPS captured
+  'waiting_at_appointment',
+  'arrived_at_dropoff',           // GPS captured
+  'dropoff_signed',               // client signs → loaded miles END
+  'completed',
+]
+
+// Step labels for NEMT driver UI (what button says BEFORE pressing)
+export const NEMT_STEP_CTA: Partial<Record<FineStatus, string>> = {
+  accepted:                     'Begin Pre-Trip Checklist',
+  pre_trip_checklist_complete:  'Arrived at Pickup',
+  arrived_at_pickup:            'Capture Pickup Signature',
+  pickup_signed:                'Departed to Appointment',
+  departed_to_appointment:      'Arrived at Appointment',
+  arrived_at_appointment:       'Waiting at Appointment',
+  waiting_at_appointment:       'Arrived at Drop-off',
+  arrived_at_dropoff:           'Capture Drop-off Signature',
+  dropoff_signed:               'Mark Trip Complete',
+}
 
 export function useErrandTrips(clientId?: string) {
   const [trips,   setTrips]   = useState<ErrandTrip[]>([])

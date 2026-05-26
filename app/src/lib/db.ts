@@ -10,10 +10,14 @@ export type QueuedOp =
   | { id: string; type: 'SESSION_NOTE';     sessionId: string; note: string; createdAt: number }
   | { id: string; type: 'UPDATE';           table: string; id_col: string; rowId: string; payload: Record<string, unknown>; createdAt: number }
   | { id: string; type: 'TRIP_STATUS';      tripId: string; tripType: 'errand' | 'nemt'; status: string; gpsLat?: number; gpsLng?: number; note?: string; photoUrl?: string; createdAt: number }
+  // Phase 4 NEMT: signature PNG stored to Supabase Storage (offline → upload on reconnect)
+  | { id: string; type: 'NEMT_SIGNATURE';   tripId: string; signatureType: 'pickup' | 'dropoff'; dataUrl: string; createdAt: number }
+  // Phase 4 NEMT: pre-trip checklist answers stored offline
+  | { id: string; type: 'NEMT_CHECKLIST';   tripId: string; answers: Record<string, boolean>; createdAt: number }
 
 const DB_NAME    = 'pathway-offline'
 const STORE_NAME = 'sync-queue'
-const DB_VERSION = 3  // v3: TRIP_STATUS op type
+const DB_VERSION = 4  // v4: NEMT_SIGNATURE, NEMT_CHECKLIST op types
 
 let _db: IDBPDatabase | null = null
 
@@ -53,6 +57,37 @@ export async function enqueueTaskStep(taskId: string, content: string): Promise<
 export async function enqueueSessionNote(sessionId: string, note: string): Promise<QueuedOp> {
   const db   = await getDb()
   const item: QueuedOp = { id: crypto.randomUUID(), type: 'SESSION_NOTE', sessionId, note, createdAt: Date.now() }
+  await db.put(STORE_NAME, item)
+  return item
+}
+
+export async function enqueueNemtSignature(
+  tripId:        string,
+  signatureType: 'pickup' | 'dropoff',
+  dataUrl:       string,
+): Promise<QueuedOp> {
+  const db = await getDb()
+  const item: QueuedOp = {
+    id: crypto.randomUUID(),
+    type: 'NEMT_SIGNATURE',
+    tripId, signatureType, dataUrl,
+    createdAt: Date.now(),
+  }
+  await db.put(STORE_NAME, item)
+  return item
+}
+
+export async function enqueueNemtChecklist(
+  tripId:  string,
+  answers: Record<string, boolean>,
+): Promise<QueuedOp> {
+  const db = await getDb()
+  const item: QueuedOp = {
+    id: crypto.randomUUID(),
+    type: 'NEMT_CHECKLIST',
+    tripId, answers,
+    createdAt: Date.now(),
+  }
   await db.put(STORE_NAME, item)
   return item
 }
@@ -171,6 +206,38 @@ async function executeOp(op: QueuedOp): Promise<void> {
         .from('sessions')
         .update({ notes: updated })
         .eq('id', op.sessionId)
+      if (error) throw error
+      break
+    }
+    case 'NEMT_SIGNATURE': {
+      // Convert data URL → Blob and upload to nemt-signatures/{tripId}/{type}.png
+      const res  = await fetch(op.dataUrl)
+      const blob = await res.blob()
+      const path = `${op.tripId}/${op.signatureType}.png`
+      const { error: upErr } = await supabase.storage
+        .from('nemt-signatures')
+        .upload(path, blob, { contentType: 'image/png', upsert: false })
+      if (upErr && !upErr.message.includes('already exists')) throw upErr
+
+      // Update the correct column on nemt_trips
+      const col = op.signatureType === 'pickup' ? 'pickup_signature_url' : 'dropoff_signature_url'
+      const { error: dbErr } = await supabase
+        .from('nemt_trips')
+        .update({ [col]: path, updated_at: new Date().toISOString() })
+        .eq('id', op.tripId)
+      if (dbErr) throw dbErr
+      break
+    }
+    case 'NEMT_CHECKLIST': {
+      // Mark pre-trip checklist complete on nemt_trips
+      const { error } = await supabase
+        .from('nemt_trips')
+        .update({
+          pre_trip_checklist_completed: true,
+          pre_trip_checklist_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', op.tripId)
       if (error) throw error
       break
     }
