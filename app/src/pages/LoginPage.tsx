@@ -12,7 +12,17 @@ export function LoginPage() {
     setLoading(true)
     setError(null)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) setError(error.message)
+    if (error) {
+      // Map raw fetch/network errors to user-friendly messages
+      const msg = error.message.toLowerCase()
+      if (msg.includes('fetch') || msg.includes('network') || msg.includes('failed')) {
+        setError('Unable to connect. Check your internet connection and try again.')
+      } else if (msg.includes('invalid') || msg.includes('credentials') || msg.includes('password')) {
+        setError('Incorrect email or password.')
+      } else {
+        setError(error.message)
+      }
+    }
     setLoading(false)
   }
 

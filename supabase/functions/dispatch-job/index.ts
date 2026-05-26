@@ -74,6 +74,15 @@ Deno.serve(async (req) => {
   const clientCounty: string = trip.clients?.county ?? ''
   const clientZip: string = trip.clients?.zip ?? ''
 
+  // Pre-fetch driver IDs already notified for this trip so we can exclude them.
+  // Supabase JS client doesn't execute raw SQL subqueries — must fetch IDs first.
+  const { data: alreadyNotified } = await supabase
+    .from('job_dispatch_log')
+    .select('driver_id')
+    .eq('trip_id', trip_id)
+    .eq('trip_type', 'errand')
+  const excludeIds = (alreadyNotified ?? []).map((r: any) => r.driver_id as string)
+
   // Find eligible drivers:
   //   - active = true (vetted and background-checked)
   //   - online = true (available for work)
@@ -87,10 +96,10 @@ Deno.serve(async (req) => {
     .eq('active', true)
     .eq('online', true)
     .eq('background_check_status', 'approved')
-    .not('id', 'in', `(
-      SELECT driver_id FROM job_dispatch_log
-      WHERE trip_id = '${trip_id}' AND trip_type = 'errand'
-    )`)
+
+  if (excludeIds.length > 0) {
+    driversQuery = driversQuery.not('id', 'in', `(${excludeIds.join(',')})`)
+  }
 
   if (trip.wav_required) {
     driversQuery = driversQuery.eq('has_wav', true)

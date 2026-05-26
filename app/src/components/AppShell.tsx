@@ -18,6 +18,7 @@ import { ErrandQueuePage } from '../pages/navigator/errands/ErrandQueuePage'
 import { BookErrandPage } from '../pages/navigator/errands/BookErrandPage'
 import { TripDetailPage } from '../pages/navigator/errands/TripDetailPage'
 import { DriverProfilePage } from '../pages/admin/drivers/DriverProfilePage'
+import { DriverListPage } from '../pages/admin/drivers/DriverListPage'
 import { supabase } from '../lib/supabase'
 
 type NavItem = { label: string; emoji: string; path: string }
@@ -86,6 +87,7 @@ export function AppShell() {
         <Route index element={<AdminDashboard />} />
         <Route path="errands" element={<ErrandOperationsPage />} />
         <Route path="errands/:tripId" element={<TripDetailPage />} />
+        <Route path="drivers" element={<DriverListPage />} />
         <Route path="drivers/:driverId" element={<DriverProfilePage />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>

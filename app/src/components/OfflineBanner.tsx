@@ -10,8 +10,8 @@ export function OfflineBanner() {
       role="status"
       aria-live="polite"
       className={`
-        fixed top-0 inset-x-0 z-50 flex items-center justify-center gap-2
-        py-2 px-4 text-sm font-medium
+        w-full flex items-center justify-center gap-2
+        py-2 px-4 text-sm font-medium shrink-0
         ${isOffline
           ? 'bg-amber-500 text-white'
           : 'bg-green text-white'}
