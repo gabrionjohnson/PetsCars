@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
+import { getNemtSignatureUrl } from '../../../lib/storage'
 import { useAuth } from '../../../hooks/useAuth'
 import {
   useNemtClaim,
@@ -67,8 +68,21 @@ export function NemtClaimDetailPage() {
   const { claim, loading, refetch } = useNemtClaim(id)
   const { log } = useTripStatusLog(claim?.trip_id ?? '', 'nemt')
 
-  const [toast, setToast]     = useState<string | null>(null)
-  const [saving, setSaving]   = useState(false)
+  const [toast, setToast]         = useState<string | null>(null)
+  const [saving, setSaving]       = useState(false)
+  const [sigLoading, setSigLoading] = useState<'pickup' | 'dropoff' | null>(null)
+
+  async function viewSignature(path: string, type: 'pickup' | 'dropoff') {
+    setSigLoading(type)
+    try {
+      const url = await getNemtSignatureUrl(path)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch {
+      setToast('Could not load signature — check your permissions.')
+    } finally {
+      setSigLoading(null)
+    }
+  }
 
   // Edit loaded miles
   const [editMiles,  setEditMiles]  = useState(false)
@@ -258,11 +272,29 @@ export function NemtClaimDetailPage() {
           <Check ok={!!claim.gps_dropoff_coords}         label="GPS at drop-off" />
           <Check ok={!!claim.dropoff_signature_url}      label="Drop-off signature" />
         </div>
-        {claim.pickup_signature_url && (
-          <p className="text-xs text-gray-400 mt-2 font-mono">Pickup sig: {claim.pickup_signature_url}</p>
-        )}
-        {claim.dropoff_signature_url && (
-          <p className="text-xs text-gray-400 font-mono">Drop-off sig: {claim.dropoff_signature_url}</p>
+        {(claim.pickup_signature_url || claim.dropoff_signature_url) && (
+          <div className="flex gap-2 mt-2">
+            {claim.pickup_signature_url && (
+              <button
+                onClick={() => viewSignature(claim.pickup_signature_url!, 'pickup')}
+                disabled={sigLoading === 'pickup'}
+                className="flex-1 text-xs border border-gray-200 rounded-lg py-1.5 text-gray-700
+                           hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                {sigLoading === 'pickup' ? '…' : '🖊 View Pickup Sig'}
+              </button>
+            )}
+            {claim.dropoff_signature_url && (
+              <button
+                onClick={() => viewSignature(claim.dropoff_signature_url!, 'dropoff')}
+                disabled={sigLoading === 'dropoff'}
+                className="flex-1 text-xs border border-gray-200 rounded-lg py-1.5 text-gray-700
+                           hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                {sigLoading === 'dropoff' ? '…' : '🖊 View Drop-off Sig'}
+              </button>
+            )}
+          </div>
         )}
       </div>
 

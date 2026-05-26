@@ -5,7 +5,8 @@
 
 import { supabase } from './supabase'
 
-const BUCKET = 'client-documents'
+const BUCKET      = 'client-documents'
+const NEMT_BUCKET = 'nemt-signatures'
 
 export function buildDocPath(
   clientId:  string,
@@ -33,13 +34,26 @@ export async function uploadDocument(
   return path
 }
 
-/** Get a short-lived signed URL for in-app preview (60 seconds). */
+/** Get a short-lived signed URL for in-app preview of client documents (60 seconds). */
 export async function getPreviewUrl(path: string): Promise<string> {
   const { data, error } = await supabase.storage
     .from(BUCKET)
     .createSignedUrl(path, 60)
 
   if (error || !data?.signedUrl) throw new Error('Could not generate preview URL')
+  return data.signedUrl
+}
+
+/**
+ * Get a signed URL for an NEMT signature PNG from the private nemt-signatures bucket.
+ * Expiry: 5 minutes — long enough for admin review but short-lived per HIPAA guidance.
+ */
+export async function getNemtSignatureUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(NEMT_BUCKET)
+    .createSignedUrl(path, 300) // 5-minute expiry
+
+  if (error || !data?.signedUrl) throw new Error('Could not generate NEMT signature URL')
   return data.signedUrl
 }
 
