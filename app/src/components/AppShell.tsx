@@ -9,10 +9,12 @@ import { TaskDetailPage } from '../pages/navigator/tasks/TaskDetailPage'
 import { LogSessionPage } from '../pages/navigator/sessions/LogSessionPage'
 import { OnboardingWizard } from '../pages/navigator/onboarding/OnboardingWizard'
 import { BenefitsScreenerPage } from '../pages/navigator/screener/BenefitsScreenerPage'
+import { NavigatorEarningsPage } from '../pages/navigator/earnings/EarningsPage'
 import { DriverDashboard } from '../pages/driver/DashboardPage'
 import { FamilyDashboard } from '../pages/family/DashboardPage'
 import { FamilyBookErrandPage } from '../pages/family/BookErrandPage'
 import { NemtPage as FamilyNemtPage } from '../pages/family/NemtPage'
+import { BillingPage as FamilyBillingPage } from '../pages/family/billing/BillingPage'
 import { AdminDashboard } from '../pages/admin/DashboardPage'
 import { ErrandOperationsPage } from '../pages/admin/errands/ErrandOperationsPage'
 import { ErrandQueuePage } from '../pages/navigator/errands/ErrandQueuePage'
@@ -26,32 +28,40 @@ import { NemtTripDetailPage } from '../pages/navigator/nemt/NemtTripDetailPage'
 import { NemtClaimsPage } from '../pages/admin/nemt/NemtClaimsPage'
 import { NemtClaimDetailPage } from '../pages/admin/nemt/NemtClaimDetailPage'
 import { NemtRevenuePage } from '../pages/admin/nemt/NemtRevenuePage'
+import { AmbassadorListPage } from '../pages/admin/ambassadors/AmbassadorListPage'
+import { AmbassadorLedgerPage } from '../pages/admin/ambassadors/AmbassadorLedgerPage'
+import { BillingManagementPage } from '../pages/admin/billing/BillingManagementPage'
+import { TerritoryMapPage } from '../pages/admin/territory/TerritoryMapPage'
+import { FlyerGeneratorPage } from '../pages/admin/flyer/FlyerGeneratorPage'
+import { PlatformSettingsPage } from '../pages/admin/settings/PlatformSettingsPage'
 import { supabase } from '../lib/supabase'
 
 type NavItem = { label: string; emoji: string; path: string }
 
 const NAV_ITEMS: Record<string, NavItem[]> = {
   navigator:    [
-    { label: 'Clients',  emoji: '👥', path: '/nav' },
-    { label: 'Tasks',    emoji: '✅', path: '/nav/tasks' },
-    { label: 'Errands',  emoji: '🚐', path: '/nav/errands' },
-    { label: 'NEMT',     emoji: '🏥', path: '/nav/nemt' },
-    { label: 'Onboard',  emoji: '➕', path: '/nav/onboard' },
+    { label: 'Clients',   emoji: '👥', path: '/nav' },
+    { label: 'Tasks',     emoji: '✅', path: '/nav/tasks' },
+    { label: 'Errands',   emoji: '🚐', path: '/nav/errands' },
+    { label: 'NEMT',      emoji: '🏥', path: '/nav/nemt' },
+    { label: 'Earnings',  emoji: '💰', path: '/nav/earnings' },
   ],
   driver:       [
     { label: 'Trips',   emoji: '🚗', path: '/driver' },
     { label: 'History', emoji: '📂', path: '/driver/history' },
   ],
   family_proxy: [
-    { label: 'Activity',   emoji: '📡', path: '/family' },
-    { label: 'NEMT',       emoji: '🏥', path: '/family/nemt' },
-    { label: 'Documents',  emoji: '📄', path: '/family/docs' },
+    { label: 'Activity',  emoji: '📡', path: '/family' },
+    { label: 'NEMT',      emoji: '🏥', path: '/family/nemt' },
+    { label: 'Billing',   emoji: '💳', path: '/family/billing' },
+    { label: 'Documents', emoji: '📄', path: '/family/docs' },
   ],
   admin:        [
-    { label: 'Overview', emoji: '📊', path: '/admin' },
-    { label: 'Errands',  emoji: '🚐', path: '/admin/errands' },
-    { label: 'NEMT',     emoji: '🏥', path: '/admin/nemt' },
-    { label: 'Drivers',  emoji: '🚗', path: '/admin/drivers' },
+    { label: 'Overview',  emoji: '📊', path: '/admin' },
+    { label: 'Errands',   emoji: '🚐', path: '/admin/errands' },
+    { label: 'NEMT',      emoji: '🏥', path: '/admin/nemt' },
+    { label: 'Drivers',   emoji: '🚗', path: '/admin/drivers' },
+    { label: 'More',      emoji: '⋯',  path: '/admin/more' },
   ],
 }
 
@@ -72,6 +82,7 @@ function NavigatorRoutes() {
       <Route path="nemt/new" element={<BookNemtPage />} />
       <Route path="nemt/:tripId" element={<NemtTripDetailPage />} />
       <Route path="onboard" element={<OnboardingWizard />} />
+      <Route path="earnings" element={<NavigatorEarningsPage />} />
       <Route path="*" element={<Navigate to="/nav" replace />} />
     </Routes>
   )
@@ -83,8 +94,39 @@ function FamilyRoutes() {
       <Route index element={<FamilyDashboard />} />
       <Route path="book" element={<FamilyBookErrandPage />} />
       <Route path="nemt" element={<FamilyNemtPage />} />
+      <Route path="billing" element={<FamilyBillingPage />} />
       <Route path="*" element={<Navigate to="/family" replace />} />
     </Routes>
+  )
+}
+
+/** Admin "More" menu — secondary pages not in bottom nav */
+function AdminMorePage() {
+  const navigate = useNavigate()
+  const links = [
+    { label: 'Ambassadors',  emoji: '🤝', path: '/admin/ambassadors' },
+    { label: 'Billing',      emoji: '💳', path: '/admin/billing' },
+    { label: 'Territory',    emoji: '🗺️',  path: '/admin/territory' },
+    { label: 'Flyer Gen',    emoji: '📄', path: '/admin/flyer' },
+    { label: 'Settings',     emoji: '⚙️',  path: '/admin/settings' },
+    { label: 'Revenue',      emoji: '📈', path: '/admin/nemt/revenue' },
+  ]
+  return (
+    <div className="p-4 space-y-3">
+      <h2 className="text-xl font-bold text-gray-900">More</h2>
+      <div className="grid grid-cols-2 gap-3">
+        {links.map(l => (
+          <button
+            key={l.path}
+            onClick={() => navigate(l.path)}
+            className="bg-white border border-gray-200 rounded-xl p-4 text-left shadow-sm hover:border-[#1a5c38] transition-colors"
+          >
+            <p className="text-2xl mb-1">{l.emoji}</p>
+            <p className="text-sm font-semibold text-gray-900">{l.label}</p>
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -106,6 +148,13 @@ export function AppShell() {
         <Route path="nemt/claims/:claimId" element={<NemtClaimDetailPage />} />
         <Route path="drivers" element={<DriverListPage />} />
         <Route path="drivers/:driverId" element={<DriverProfilePage />} />
+        <Route path="ambassadors" element={<AmbassadorListPage />} />
+        <Route path="ambassadors/:id" element={<AmbassadorLedgerPage />} />
+        <Route path="billing" element={<BillingManagementPage />} />
+        <Route path="territory" element={<TerritoryMapPage />} />
+        <Route path="flyer" element={<FlyerGeneratorPage />} />
+        <Route path="settings" element={<PlatformSettingsPage />} />
+        <Route path="more" element={<AdminMorePage />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     )
@@ -152,7 +201,8 @@ export function AppShell() {
         <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 flex">
           {navItems.map(item => {
             const active = location.pathname === item.path ||
-              (item.path !== '/nav' && item.path !== '/family' && location.pathname.startsWith(item.path))
+              (item.path !== '/nav' && item.path !== '/family' && item.path !== '/admin' &&
+               location.pathname.startsWith(item.path))
             return (
               <button
                 key={item.label}

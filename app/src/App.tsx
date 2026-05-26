@@ -2,6 +2,8 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { LoginPage } from './pages/LoginPage'
 import { AppShell } from './components/AppShell'
+import { AmbassadorSignupPage } from './pages/ambassador/AmbassadorSignupPage'
+import { AmbassadorDashboard } from './pages/ambassador/AmbassadorDashboard'
 
 function RoleRedirect({ role }: { role: string | null }) {
   switch (role) {
@@ -24,16 +26,23 @@ export default function App() {
     )
   }
 
-  if (!user) return <LoginPage />
-
+  // Public routes always render regardless of auth
   return (
     <Routes>
-      <Route path="/" element={<RoleRedirect role={role} />} />
-      <Route path="/nav/*" element={<AppShell />} />
-      <Route path="/driver/*" element={<AppShell />} />
-      <Route path="/family/*" element={<AppShell />} />
-      <Route path="/admin/*" element={<AppShell />} />
-      <Route path="*" element={<RoleRedirect role={role} />} />
+      <Route path="/join" element={<AmbassadorSignupPage />} />
+      <Route path="/ambassador/:token" element={<AmbassadorDashboard />} />
+      {!user ? (
+        <Route path="*" element={<LoginPage />} />
+      ) : (
+        <>
+          <Route path="/" element={<RoleRedirect role={role} />} />
+          <Route path="/nav/*" element={<AppShell />} />
+          <Route path="/driver/*" element={<AppShell />} />
+          <Route path="/family/*" element={<AppShell />} />
+          <Route path="/admin/*" element={<AppShell />} />
+          <Route path="*" element={<RoleRedirect role={role} />} />
+        </>
+      )}
     </Routes>
   )
 }
