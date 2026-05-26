@@ -162,3 +162,13 @@ DELETE FROM clients WHERE id = '<client-id>';
 - `client-documents` and `nemt-signatures` Storage buckets are private (no public URLs)
 - `share_token` on documents enables time-limited, expiring links for form submissions
 - Georgia DCH requires NEMT trip records (GPS, signatures, mileage logs) to be retained per retention schedule
+
+## Out of Scope — v1.0
+
+**Family Proxy self-service enrollment:**
+Family proxies cannot self-register or initiate Stripe checkout independently.
+Senior enrollment requires a Navigator using `/nav/onboard`.
+The BillingPage is intentionally read-only ("contact your Navigator").
+Self-service enrollment with Stripe checkout is a v2.0 feature,
+deferred until the Navigator network is established and enrollment
+volume justifies removing the Navigator-as-intermediary trust layer.

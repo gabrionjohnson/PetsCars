@@ -15,6 +15,7 @@ import { FamilyDashboard } from '../pages/family/DashboardPage'
 import { FamilyBookErrandPage } from '../pages/family/BookErrandPage'
 import { NemtPage as FamilyNemtPage } from '../pages/family/NemtPage'
 import { BillingPage as FamilyBillingPage } from '../pages/family/billing/BillingPage'
+import { FamilyDocumentsPage } from '../pages/family/FamilyDocumentsPage'
 import { AdminDashboard } from '../pages/admin/DashboardPage'
 import { ErrandOperationsPage } from '../pages/admin/errands/ErrandOperationsPage'
 import { ErrandQueuePage } from '../pages/navigator/errands/ErrandQueuePage'
@@ -95,6 +96,7 @@ function FamilyRoutes() {
       <Route path="book" element={<FamilyBookErrandPage />} />
       <Route path="nemt" element={<FamilyNemtPage />} />
       <Route path="billing" element={<FamilyBillingPage />} />
+      <Route path="docs" element={<FamilyDocumentsPage />} />
       <Route path="*" element={<Navigate to="/family" replace />} />
     </Routes>
   )
