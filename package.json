@@ -1,0 +1,15 @@
+{
+  "name": "pathway-scripts",
+  "private": true,
+  "description": "Root workspace — seed scripts and dev tooling for Pathway",
+  "scripts": {
+    "seed": "ts-node scripts/seed-test-data.ts",
+    "seed:fresh": "ts-node scripts/seed-test-data.ts --fresh"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.106.2",
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.6.0"
+  }
+}

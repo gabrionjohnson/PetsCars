@@ -1,0 +1,12 @@
+# Seed script secrets — never commit real keys
+.env.seed
+.env.local
+.env
+
+# Root node_modules (seed script deps)
+node_modules/
+.ts-out/
+
+# App build artifacts
+app/dist/
+app/node_modules/
