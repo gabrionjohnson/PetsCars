@@ -66,10 +66,21 @@ CREATE INDEX IF NOT EXISTS idx_trip_status_log_trip
   ON trip_status_log (trip_id, created_at DESC);
 
 -- ── 4. nemt_trips: completed trips must have loaded_miles ─────────────────────
-ALTER TABLE nemt_trips
-  ADD CONSTRAINT IF NOT EXISTS nemt_trips_completed_loaded_miles CHECK (
-    status != 'completed' OR loaded_miles IS NOT NULL
-  );
+-- ADD CONSTRAINT IF NOT EXISTS is not valid SQL — use a DO block to guard.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname    = 'nemt_trips_completed_loaded_miles'
+      AND conrelid   = 'nemt_trips'::regclass
+  ) THEN
+    ALTER TABLE nemt_trips
+      ADD CONSTRAINT nemt_trips_completed_loaded_miles CHECK (
+        status != 'completed' OR loaded_miles IS NOT NULL
+      );
+  END IF;
+END;
+$$;
 
 -- ── 5. nemt_claims: mileage reasonableness flag ───────────────────────────────
 ALTER TABLE nemt_claims
