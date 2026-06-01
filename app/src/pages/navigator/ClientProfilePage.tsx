@@ -320,13 +320,17 @@ export function ClientProfilePage() {
                 ) : (
                   <div className="space-y-2">
                     {(screening.results ?? []).slice(0, 5).map((program: RecommendedProgram) => (
-                      <div key={program.id} className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
+                      <div key={program.programId} className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{program.name}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">{program.estimatedBenefit}</p>
+                          <p className="text-sm font-medium text-gray-900">{program.programName}</p>
+                          {program.estimatedAnnualValue > 0 && (
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              Up to ${program.estimatedAnnualValue.toLocaleString()}/year
+                            </p>
+                          )}
                         </div>
                         <Link
-                          to={`/nav/tasks/new?clientId=${id}&category=${program.taskCategory}`}
+                          to={`/nav/tasks/new?clientId=${id}&programId=${program.programId}`}
                           className="shrink-0 text-xs text-green-700 border border-green-200 rounded-lg px-2 py-1 min-h-[36px] flex items-center hover:bg-green-50"
                         >
                           Create Task →

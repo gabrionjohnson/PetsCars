@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import {
   SCREENER_QUESTIONS,
-  scoreScreener,
-  getAgeFromDob,
+  runAllPrograms,
   type ScreenerAnswers,
-  type IncomeRange,
-  type RecommendedProgram,
+  type EligibilityResult,
 } from '../../../../lib/benefitsScreener'
 import { Badge } from '../../../../components/ui/Badge'
 import type { OnboardingDraft } from '../OnboardingWizard'
@@ -29,34 +27,58 @@ function priorityLabel(p: 1 | 2 | 3): string {
 
 export function Step3Screener({ draft, onChange }: Props) {
   const clientName = draft.firstName || 'the client'
-  const totalQ = SCREENER_QUESTIONS.length
   const [subStep, setSubStep] = useState(0)
 
-  const answered = Object.keys(draft.screenerAnswers).length
-  const allAnswered = answered >= totalQ
+  const answers = draft.screenerAnswers
 
-  function handleAnswer(questionId: keyof ScreenerAnswers, value: string) {
-    const updated = { ...draft.screenerAnswers, [questionId]: value } as Partial<ScreenerAnswers>
-    let results: RecommendedProgram[] = draft.screenerResults
+  // Filter to questions whose conditional passes given current answers
+  const visibleQuestions = SCREENER_QUESTIONS.filter(
+    q => !q.conditional || q.conditional(answers)
+  )
+  const totalQ = visibleQuestions.length
 
-    const allDone = Object.keys(updated).length >= totalQ
-    if (allDone) {
-      const age = draft.dob ? getAgeFromDob(draft.dob) : 65
-      results = scoreScreener(
-        updated as ScreenerAnswers,
-        age,
-        (draft.incomeRange || 'under_500') as IncomeRange,
-      )
+  const allAnswered = visibleQuestions.every(q => {
+    const val = answers[q.id]
+    if (val === undefined || val === null) return false
+    if (Array.isArray(val)) return val.length > 0
+    return true
+  })
+
+  function handleAnswer(questionId: keyof ScreenerAnswers, value: string, isMulti: boolean) {
+    let updated: Partial<ScreenerAnswers>
+
+    if (isMulti) {
+      const current = (answers[questionId] as string[] | undefined) ?? []
+      const toggled = current.includes(value)
+        ? current.filter(v => v !== value)
+        : [...current, value]
+      updated = { ...answers, [questionId]: toggled }
+    } else {
+      updated = { ...answers, [questionId]: value }
     }
+
+    const newVisible = SCREENER_QUESTIONS.filter(
+      q => !q.conditional || q.conditional(updated)
+    )
+    const newAllDone = newVisible.every(q => {
+      const val = (updated as Record<string, unknown>)[q.id as string]
+      if (val === undefined || val === null) return false
+      if (Array.isArray(val)) return val.length > 0
+      return true
+    })
+
+    const results: EligibilityResult[] = newAllDone
+      ? runAllPrograms(updated as ScreenerAnswers)
+      : draft.screenerResults
 
     onChange({ screenerAnswers: updated, screenerResults: results })
 
-    if (subStep < totalQ - 1) {
+    if (!isMulti && subStep < totalQ - 1) {
       setSubStep(s => s + 1)
     }
   }
 
-  const currentQ = SCREENER_QUESTIONS[subStep]
+  const currentQ = visibleQuestions[subStep]
 
   return (
     <div className="space-y-5">
@@ -66,7 +88,7 @@ export function Step3Screener({ draft, onChange }: Props) {
         </p>
       </div>
 
-      {/* Sub-step progress */}
+      {/* Progress bar */}
       <div className="flex items-center gap-2">
         <div className="flex-1 bg-gray-200 rounded-full h-1">
           <div
@@ -84,14 +106,24 @@ export function Step3Screener({ draft, onChange }: Props) {
           <p className="text-lg font-semibold text-gray-900 leading-snug">
             {currentQ.text(clientName)}
           </p>
+          {currentQ.note && (
+            <p className="text-sm text-gray-500 italic">{currentQ.note}</p>
+          )}
+          {currentQ.type === 'multi_select' && (
+            <p className="text-xs text-gray-400">Select all that apply</p>
+          )}
           <div className="space-y-3">
             {currentQ.options.map(opt => {
-              const selected = draft.screenerAnswers[currentQ.id] === opt.value
+              const isMulti = currentQ.type === 'multi_select'
+              const current = answers[currentQ.id]
+              const selected = isMulti
+                ? ((current as string[] | undefined) ?? []).includes(opt.value)
+                : current === opt.value
               return (
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => handleAnswer(currentQ.id as keyof ScreenerAnswers, opt.value)}
+                  onClick={() => handleAnswer(currentQ.id as keyof ScreenerAnswers, opt.value, isMulti)}
                   className={`w-full text-left rounded-xl px-5 py-4 text-base font-medium min-h-[56px]
                     border transition-colors flex items-center gap-3
                     ${selected
@@ -106,7 +138,6 @@ export function Step3Screener({ draft, onChange }: Props) {
             })}
           </div>
 
-          {/* Back/Forward within sub-steps */}
           <div className="flex gap-2 pt-2">
             {subStep > 0 && (
               <button
@@ -117,7 +148,16 @@ export function Step3Screener({ draft, onChange }: Props) {
                 ← Previous question
               </button>
             )}
-            {draft.screenerAnswers[currentQ.id] && subStep < totalQ - 1 && (
+            {currentQ.type === 'multi_select' && subStep < totalQ - 1 && (
+              <button
+                type="button"
+                onClick={() => setSubStep(s => s + 1)}
+                className="text-sm text-[#1a5c38] font-medium hover:underline ml-auto"
+              >
+                Next question →
+              </button>
+            )}
+            {currentQ.type === 'single' && answers[currentQ.id] && subStep < totalQ - 1 && (
               <button
                 type="button"
                 onClick={() => setSubStep(s => s + 1)}
@@ -148,19 +188,21 @@ export function Step3Screener({ draft, onChange }: Props) {
           <div className="space-y-3">
             {draft.screenerResults.map(prog => (
               <div
-                key={prog.id}
+                key={prog.programId}
                 className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm space-y-2"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold text-gray-900">{prog.name}</p>
+                  <p className="font-semibold text-gray-900">{prog.programName}</p>
                   <Badge color={priorityColor(prog.priority)}>
                     {priorityLabel(prog.priority)}
                   </Badge>
                 </div>
-                <p className="text-sm text-gray-600">{prog.description}</p>
-                <p className="text-sm text-[#1a5c38] font-medium">
-                  💰 {prog.estimatedBenefit}
-                </p>
+                {prog.notes && <p className="text-sm text-gray-600">{prog.notes}</p>}
+                {prog.estimatedAnnualValue > 0 && (
+                  <p className="text-sm text-[#1a5c38] font-medium">
+                    💰 Up to ${prog.estimatedAnnualValue.toLocaleString()}/year
+                  </p>
+                )}
               </div>
             ))}
           </div>

@@ -160,8 +160,8 @@ export function Step6Confirmation({ draft, queuedFiles, navigatorName, onSuccess
             </p>
             <div className="flex flex-wrap gap-1.5 mt-1">
               {draft.screenerResults.map(p => (
-                <Badge key={p.id} color={p.priority === 1 ? 'red' : p.priority === 2 ? 'amber' : 'blue'}>
-                  {p.name}
+                <Badge key={p.programId} color={p.priority === 1 ? 'red' : p.priority === 2 ? 'amber' : 'blue'}>
+                  {p.programName}
                 </Badge>
               ))}
             </div>
