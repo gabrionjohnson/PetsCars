@@ -16,8 +16,17 @@ type Tab = 'overview' | 'tasks' | 'sessions' | 'documents' | 'nemt' | 'info'
 interface BenefitsScreening {
   id: string
   results: RecommendedProgram[]
+  answers: Record<string, unknown> | null
   created_at: string
 }
+
+// Key documents that should be in vault for complete client records
+const KEY_DOC_TYPES: { type: string; label: string; when?: (c: ReturnType<typeof useClient>['client']) => boolean }[] = [
+  { type: 'medicare_card',    label: 'Medicare Card' },
+  { type: 'ssn_card',         label: 'Social Security Card' },
+  { type: 'insurance_card',   label: 'Insurance Card' },
+  { type: 'dd214',            label: 'DD-214', when: c => !!c?.va_status },
+]
 
 interface InfoForm {
   name: string
@@ -123,6 +132,9 @@ export function ClientProfilePage() {
   const [screening, setScreening] = useState<BenefitsScreening | null>(null)
   const [screeningLoaded, setScreeningLoaded] = useState(false)
 
+  // Document gap tracking (doc types present in vault)
+  const [uploadedDocTypes, setUploadedDocTypes] = useState<Set<string>>(new Set())
+
   // Navigator name
   const [navigatorName, setNavigatorName] = useState<string>('')
 
@@ -135,7 +147,7 @@ export function ClientProfilePage() {
     if (!id) return
     supabase
       .from('benefits_screenings')
-      .select('id, results, created_at')
+      .select('id, results, answers, created_at')
       .eq('client_id', id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -143,6 +155,17 @@ export function ClientProfilePage() {
       .then(({ data }) => {
         setScreening(data as BenefitsScreening | null)
         setScreeningLoaded(true)
+      })
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    supabase
+      .from('documents')
+      .select('document_type')
+      .eq('client_id', id)
+      .then(({ data }) => {
+        setUploadedDocTypes(new Set((data ?? []).map((d: { document_type: string }) => d.document_type)))
       })
   }, [id])
 
@@ -275,6 +298,21 @@ export function ClientProfilePage() {
         {navigatorName && (
           <p className="text-xs text-gray-400">Navigator: {navigatorName}</p>
         )}
+        {/* Document gap indicator */}
+        {(() => {
+          const missing = KEY_DOC_TYPES
+            .filter(doc => !doc.when || doc.when(client))
+            .filter(doc => !uploadedDocTypes.has(doc.type))
+          if (missing.length === 0) return null
+          return (
+            <button
+              onClick={() => setActiveTab('documents')}
+              className="mt-2 w-full text-left text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
+            >
+              Missing: {missing.map(d => d.label).join(', ')} →
+            </button>
+          )
+        })()}
       </div>
 
       {/* Tab bar */}
@@ -341,6 +379,13 @@ export function ClientProfilePage() {
                 )}
               </div>
             </section>
+
+            {/* Grief/isolation navigator note — not visible to family proxy or senior */}
+            {screening?.answers?.q18_surviving_spouse === 'yes' && (
+              <div className="bg-purple-50 border border-purple-200 rounded-xl px-4 py-3 text-xs text-purple-800">
+                <strong>Navigator note:</strong> This client may be recently widowed. Consider extra check-ins during the first 30 days and look into grief support resources.
+              </div>
+            )}
 
             {/* Active tasks mini list */}
             <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">

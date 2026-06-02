@@ -265,6 +265,13 @@ export function NavigatorDashboard() {
         <span className="text-sm text-gray-500">{clients.length} total</span>
       </div>
 
+      {/* Capacity warning — gentle nudge when approaching full roster */}
+      {!loading && clients.length > 25 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+          You're managing {clients.length} clients, approaching full capacity (30). Consider discussing expansion with your admin.
+        </div>
+      )}
+
       {loading ? (
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => <SkeletonCard key={i} />)}

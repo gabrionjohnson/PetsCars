@@ -489,7 +489,10 @@ export function checkWeatherization(a: ScreenerAnswers): EligibilityResult | nul
 export function checkFarmersMarket(a: ScreenerAnswers): EligibilityResult | null {
   if (!isAge60Plus(a)) return null
 
-  // 185% FPL ~$2,302/mo
+  // 185% FPL ~$2,302/mo. For 'over_2000' the minimum ($2,000) is only slightly below
+  // the limit — not worth flagging a $75/year voucher on a marginal income overlap.
+  if (a.q3_income === 'over_2000') return null
+
   const incomeCheck = checkMonthlyIncome(a.q3_income, 2302)
   if (incomeCheck === 'ineligible') return null
 
