@@ -144,7 +144,7 @@ export function BenefitsScreenerPage() {
           client_id:             clientId,
           navigator_id:          user?.id ?? client.navigator_id,
           answers,
-          recommended_programs:  results,
+          results,
           screener_version:      2,
           estimated_annual_value: annualValue,
           priority_programs:     priorityPrograms,

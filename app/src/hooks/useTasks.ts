@@ -14,6 +14,8 @@ export interface Task {
   category:    string
   title:       string
   status:      'pending' | 'in_progress' | 'completed' | 'on_hold' | 'canceled'
+  priority:    'high' | 'medium' | 'low' | null
+  due_date:    string | null
   steps:       TaskStep[]
   notes:       string | null
   documents:   string[]
