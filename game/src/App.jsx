@@ -406,7 +406,7 @@ export default function App() {
   useEffect(() => { skipsUsedRef.current = skipsUsed; }, [skipsUsed]);
   useEffect(() => { picksRef.current = picks; }, [picks]);
 
-  useEffect(() => { fetch('/players.json').then(r => r.json()).then(setPlayers); }, []);
+  useEffect(() => { fetch(`${import.meta.env.BASE_URL}players.json`).then(r => r.json()).then(setPlayers); }, []);
 
   // confetti on perfect
   useEffect(() => {
